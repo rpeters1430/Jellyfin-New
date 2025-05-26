@@ -2,6 +2,7 @@ package com.example.jellyfinnew.ui.tvshows
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -108,7 +109,8 @@ fun TvShowsScreen(
                         fontSize = 18.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
-                }            } else {
+                }
+            } else {
                 // Immersive List for TV Shows (Android TV pattern)
                 ImmersiveTvShowsList(
                     tvShows = tvShows,
@@ -122,8 +124,120 @@ fun TvShowsScreen(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun TvShowCard(
+private fun ImmersiveTvShowsList(
+    tvShows: List<MediaItem>,
+    onSeriesClick: (String) -> Unit,
+    onFocus: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var selectedIndex by remember { mutableStateOf(0) }
+    val selectedSeries = if (tvShows.isNotEmpty() && selectedIndex < tvShows.size) {
+        tvShows[selectedIndex]
+    } else null
+
+    // Trigger focus for the initially selected item
+    LaunchedEffect(selectedSeries) {
+        selectedSeries?.let { series ->
+            onFocus(series.backdropUrl ?: series.imageUrl)
+        }
+    }
+
+    Column(
+        modifier = modifier.fillMaxSize()
+    ) {
+        // Details section for focused item (top 40% of screen)
+        selectedSeries?.let { series ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.4f)
+                    .padding(24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.align(Alignment.BottomStart),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = series.name,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        series.productionYear?.let { year ->
+                            Text(
+                                text = year.toString(),
+                                fontSize = 16.sp,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
+                        
+                        series.communityRating?.let { rating ->
+                            Text(
+                                text = "★ ${String.format("%.1f", rating)}",
+                                fontSize = 16.sp,
+                                color = Color.Yellow
+                            )
+                        }
+                    }
+                    
+                    series.overview?.let { overview ->
+                        Text(
+                            text = overview,
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.9f),
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
+            }
+        }
+        
+        // TV Shows horizontal list (bottom 60% of screen)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(horizontal = 24.dp)
+        ) {
+            LazyRow(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
+            ) {
+                items(tvShows.size) { index ->
+                    val series = tvShows[index]
+                    val isSelected = index == selectedIndex
+                    
+                    ImmersiveTvShowCard(
+                        series = series,
+                        isSelected = isSelected,
+                        onClick = { onSeriesClick(series.id) },
+                        onFocus = {
+                            selectedIndex = index
+                            onFocus(series.backdropUrl ?: series.imageUrl)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ImmersiveTvShowCard(
     series: MediaItem,
+    isSelected: Boolean,
     onClick: () -> Unit,
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
@@ -133,15 +247,17 @@ private fun TvShowCard(
     Card(
         onClick = onClick,
         modifier = modifier
-            .aspectRatio(2f / 3f) // Standard poster aspect ratio
+            .width(180.dp)
+            .aspectRatio(2f / 3f) // Poster aspect ratio
             .onFocusChanged { focusState ->
                 isFocused = focusState.isFocused
                 if (focusState.isFocused) {
                     onFocus()
                 }
-            },        scale = CardDefaults.scale(
-            scale = if (isFocused) 1.05f else 1.0f, // Reduced from 1.1f to 1.05f
-            focusedScale = 1.05f // Subtle scaling to prevent off-screen issues
+            },
+        scale = CardDefaults.scale(
+            scale = if (isSelected) 1.05f else 1.0f,
+            focusedScale = 1.1f
         ),
         colors = CardDefaults.colors(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
@@ -159,55 +275,45 @@ private fun TvShowCard(
                 contentScale = ContentScale.Crop
             )
             
-            // Gradient overlay for text readability
+            // Selected indicator overlay
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                )
+                            )
+                        )
+                )
+            }
+            
+            // Title overlay (always visible in immersive list)
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.7f)
-                            ),
-                            startY = 0.5f,
-                            endY = 1.0f
+                                Color.Black.copy(alpha = 0.8f)
+                            )
                         )
                     )
-            )
-            
-            // Series info
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.Bottom
+                    .padding(8.dp)
             ) {
                 Text(
                     text = series.name,
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                
-                series.productionYear?.let { year ->
-                    Text(
-                        text = year.toString(),
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.8f),
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-                
-                series.communityRating?.let { rating ->
-                    Text(
-                        text = "★ ${String.format("%.1f", rating)}",
-                        fontSize = 12.sp,
-                        color = Color.Yellow,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
             }
             
             // Watch progress indicator
@@ -216,16 +322,16 @@ private fun TvShowCard(
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(8.dp)
+                            .padding(6.dp)
                             .background(
-                                Color.Green.copy(alpha = 0.8f),
+                                Color.Green.copy(alpha = 0.9f),
                                 RoundedCornerShape(4.dp)
                             )
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = if (userData.played) "✓" else "▶",
-                            fontSize = 10.sp,
+                            fontSize = 8.sp,
                             color = Color.White,
                             fontWeight = FontWeight.Bold
                         )

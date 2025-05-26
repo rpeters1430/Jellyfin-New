@@ -42,7 +42,8 @@ fun JellyfinNavigation(
                 }
             )
         }
-          composable(Screen.Home.route) {
+        
+        composable(Screen.Home.route) {
             val viewModel: HomeViewModel = viewModel()
             val loginViewModel: LoginViewModel = viewModel()
             HomeScreen(
@@ -60,10 +61,12 @@ fun JellyfinNavigation(
                     }
                 }
             )
-        }        
+        }
+        
         composable(
             route = Screen.TvShows.route,
-            arguments = listOf(navArgument("libraryId") { type = NavType.StringType })        ) { backStackEntry ->
+            arguments = listOf(navArgument("libraryId") { type = NavType.StringType })
+        ) { backStackEntry ->
             val libraryId = backStackEntry.arguments?.getString("libraryId") ?: return@composable
             val viewModel: TvShowsViewModel = viewModel()
             viewModel.setLibraryId(libraryId)
@@ -80,7 +83,8 @@ fun JellyfinNavigation(
         
         composable(
             route = Screen.TvSeasons.route,
-            arguments = listOf(navArgument("seriesId") { type = NavType.StringType })        ) { backStackEntry ->
+            arguments = listOf(navArgument("seriesId") { type = NavType.StringType })
+        ) { backStackEntry ->
             val seriesId = backStackEntry.arguments?.getString("seriesId") ?: return@composable
             val viewModel: TvSeasonsViewModel = viewModel()
             viewModel.setSeriesId(seriesId)
@@ -100,7 +104,8 @@ fun JellyfinNavigation(
             arguments = listOf(
                 navArgument("seriesId") { type = NavType.StringType },
                 navArgument("seasonId") { type = NavType.StringType }
-            )        ) { backStackEntry ->
+            )
+        ) { backStackEntry ->
             val seriesId = backStackEntry.arguments?.getString("seriesId") ?: return@composable
             val seasonId = backStackEntry.arguments?.getString("seasonId") ?: return@composable
             val viewModel: TvEpisodesViewModel = viewModel()
@@ -116,7 +121,10 @@ fun JellyfinNavigation(
             )
         }
         
-        composable(Screen.Player.route) { backStackEntry ->
+        composable(
+            route = Screen.Player.route,
+            arguments = listOf(navArgument("itemId") { type = NavType.StringType })
+        ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
             val homeEntry = remember(navController) { navController.getBackStackEntry(Screen.Home.route) }
             val homeViewModel: HomeViewModel = viewModel(
