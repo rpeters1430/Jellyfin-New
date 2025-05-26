@@ -1,0 +1,452 @@
+package com.example.jellyfinnew.data
+
+import android.content.Context
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import org.jellyfin.sdk.createJellyfin
+import org.jellyfin.sdk.api.client.ApiClient
+import org.jellyfin.sdk.api.client.extensions.authenticateUserByName
+import org.jellyfin.sdk.api.client.extensions.itemsApi
+import org.jellyfin.sdk.api.client.extensions.userApi
+import org.jellyfin.sdk.api.client.extensions.userViewsApi
+import org.jellyfin.sdk.api.client.exception.ApiClientException
+import org.jellyfin.sdk.model.ClientInfo
+import org.jellyfin.sdk.model.DeviceInfo
+import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.sdk.model.api.ItemFields
+import org.jellyfin.sdk.model.api.ItemSortBy
+import org.jellyfin.sdk.model.api.SortOrder
+
+data class ConnectionState(
+    val isConnected: Boolean = false,
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
+
+data class MediaItem(
+    val id: String,
+    val name: String,
+    val overview: String? = null,
+    val imageUrl: String? = null,
+    val backdropUrl: String? = null,
+    val type: BaseItemKind,
+    val runTimeTicks: Long? = null,
+    val userData: UserData? = null,
+    val productionYear: Int? = null,
+    val communityRating: Double? = null,
+    // Episode-specific fields
+    val episodeName: String? = null, // For TV episodes
+    val seriesName: String? = null, // Show name for episodes
+    val seriesId: String? = null, // Show ID for episodes
+    val seriesPosterUrl: String? = null // Show poster for episodes
+)
+
+data class UserData(
+    val played: Boolean,
+    val playbackPositionTicks: Long?,
+    val playCount: Int?
+)
+
+class JellyfinRepository(androidContext: Context) {
+    private val jellyfin = createJellyfin {
+        clientInfo = ClientInfo("Jellyfin Android TV", "1.0.0")
+        context = androidContext
+    }
+    
+    private var apiClient: ApiClient? = null
+    
+    private val _connectionState = MutableStateFlow(ConnectionState())
+    val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
+    
+    private val _mediaLibraries = MutableStateFlow<List<MediaItem>>(emptyList())
+    val mediaLibraries: StateFlow<List<MediaItem>> = _mediaLibraries.asStateFlow()
+    
+    private val _currentLibraryItems = MutableStateFlow<List<MediaItem>>(emptyList())
+    val currentLibraryItems: StateFlow<List<MediaItem>> = _currentLibraryItems.asStateFlow()
+    
+    private val _featuredItems = MutableStateFlow<List<MediaItem>>(emptyList())
+    val featuredItems: StateFlow<List<MediaItem>> = _featuredItems.asStateFlow()
+    
+    private val _featuredItem = MutableStateFlow<MediaItem?>(null)
+    val featuredItem: StateFlow<MediaItem?> = _featuredItem.asStateFlow()
+    
+    private val _recentlyAdded = MutableStateFlow<Map<String, List<MediaItem>>>(emptyMap())
+    val recentlyAdded: StateFlow<Map<String, List<MediaItem>>> = _recentlyAdded.asStateFlow()
+    
+    private val _featuredContent = MutableStateFlow<MediaItem?>(null)
+    val featuredContent: StateFlow<MediaItem?> = _featuredContent.asStateFlow()
+    
+    private val _recentlyAddedByLibrary = MutableStateFlow<Map<String, List<MediaItem>>>(emptyMap())
+    val recentlyAddedByLibrary: StateFlow<Map<String, List<MediaItem>>> = _recentlyAddedByLibrary.asStateFlow()
+    
+    suspend fun connect(serverUrl: String, username: String, password: String): Boolean {
+        return try {
+            _connectionState.value = _connectionState.value.copy(isLoading = true, error = null)
+            
+            val client = jellyfin.createApi(
+                baseUrl = serverUrl
+            )
+            
+            val authResult = client.userApi.authenticateUserByName(
+                username = username,
+                password = password
+            )
+            
+            authResult.content.accessToken?.let { token ->
+                apiClient = client
+                _connectionState.value = ConnectionState(isConnected = true)
+                
+                // Load initial data
+                loadMediaLibraries()
+                loadFeaturedContent()
+                loadRecentlyAdded()
+                
+                true
+            } ?: run {
+                _connectionState.value = ConnectionState(error = "Authentication failed")
+                false
+            }
+        } catch (e: Exception) {
+            _connectionState.value = ConnectionState(error = e.message ?: "Unknown error")
+            false
+        }
+    }
+    
+    fun disconnect() {
+        apiClient = null
+        _connectionState.value = ConnectionState()
+        _mediaLibraries.value = emptyList()
+        _currentLibraryItems.value = emptyList()
+        _featuredItem.value = null
+        _featuredItems.value = emptyList()
+        _recentlyAdded.value = emptyMap()
+    }
+    
+    suspend fun loadMediaLibraries() {
+        try {
+            apiClient?.let { client ->
+                println("DEBUG: Loading media libraries...")
+                val result = client.userViewsApi.getUserViews()
+                println("DEBUG: Got ${result.content.items?.size ?: 0} libraries")
+                
+                val libraries = result.content.items?.mapNotNull { item ->
+                    val primaryImageUrl = buildImageUrl(item.id.toString(), "Primary")
+                    val thumbImageUrl = buildImageUrl(item.id.toString(), "Thumb") // Fallback
+                    val backdropImageUrl = buildLargeImageUrl(item.id.toString(), "Backdrop")
+                    
+                    println("DEBUG: Library '${item.name}' - Primary: $primaryImageUrl, Thumb: $thumbImageUrl, Backdrop: $backdropImageUrl")
+                    
+                    MediaItem(
+                        id = item.id.toString(),
+                        name = item.name ?: "Unknown",
+                        overview = item.overview,
+                        imageUrl = primaryImageUrl ?: thumbImageUrl, // Try Primary first, then Thumb
+                        backdropUrl = backdropImageUrl ?: primaryImageUrl ?: thumbImageUrl, // Prefer backdrop, fall back to primary or thumb
+                        type = item.type ?: BaseItemKind.FOLDER,
+                        runTimeTicks = item.runTimeTicks,
+                        userData = item.userData?.let { userData ->
+                            UserData(
+                                played = userData.played == true,
+                                playbackPositionTicks = userData.playbackPositionTicks,
+                                playCount = userData.playCount
+                            )
+                        },
+                        productionYear = item.productionYear,
+                        communityRating = item.communityRating?.toDouble()
+                    )
+                } ?: emptyList()
+                
+                _mediaLibraries.value = libraries
+            }
+        } catch (e: Exception) {
+            println("Error loading libraries: ${e.message}")
+            // Don't update connection state error for content loading failures
+        }
+    }
+    
+    suspend fun loadLibraryItems(libraryId: String) {
+        try {
+            apiClient?.let { client ->
+                val result = client.itemsApi.getItems(
+                    parentId = libraryId,
+                    fields = setOf(
+                        ItemFields.PRIMARY_IMAGE_ASPECT_RATIO, 
+                        ItemFields.OVERVIEW
+                    ),
+                    sortBy = setOf(ItemSortBy.SORT_NAME),
+                    sortOrder = setOf(SortOrder.ASCENDING),
+                    limit = 200
+                )
+                
+                val items = result.content.items?.map { item ->
+                    MediaItem(
+                        id = item.id.toString(),
+                        name = item.name ?: "Unknown",
+                        overview = item.overview,
+                        imageUrl = buildImageUrl(item.id.toString(), "Primary"),
+                        backdropUrl = buildLargeImageUrl(item.id.toString(), "Backdrop"),
+                        type = item.type ?: BaseItemKind.FOLDER,
+                        runTimeTicks = item.runTimeTicks,
+                        userData = item.userData?.let { userData ->
+                            UserData(
+                                played = userData.played == true,
+                                playbackPositionTicks = userData.playbackPositionTicks,
+                                playCount = userData.playCount
+                            )
+                        },
+                        productionYear = item.productionYear,
+                        communityRating = item.communityRating?.toDouble()
+                    )
+                } ?: emptyList()
+                
+                _currentLibraryItems.value = items
+            }
+        } catch (e: Exception) {
+            println("Error loading library items: ${e.message}")
+            // Don't update connection state error for content loading failures
+        }
+    }
+    
+    private fun buildImageUrl(itemId: String, imageType: String): String? {
+        return apiClient?.let { client ->
+            val url = "${client.baseUrl}/Items/$itemId/Images/$imageType"
+            println("DEBUG buildImageUrl: $url")
+            url
+        }
+    }
+    
+    private fun buildLibraryImageUrl(itemId: String): String? {
+        return apiClient?.let { client ->
+            // Try multiple image types for libraries
+            val primaryUrl = "${client.baseUrl}/Items/$itemId/Images/Primary"
+            val thumbUrl = "${client.baseUrl}/Items/$itemId/Images/Thumb"
+            val backdropUrl = "${client.baseUrl}/Items/$itemId/Images/Backdrop"
+            
+            println("DEBUG buildLibraryImageUrl - Primary: $primaryUrl, Thumb: $thumbUrl, Backdrop: $backdropUrl")
+            
+            // Return Primary first, but we could add logic to check which actually exist
+            primaryUrl
+        }
+    }
+    
+    private fun buildLargeImageUrl(itemId: String, imageType: String): String? {
+        return apiClient?.let { client ->
+            // Request larger image for background use - typically 1920x1080 or higher
+            val url = "${client.baseUrl}/Items/$itemId/Images/$imageType?maxWidth=1920&maxHeight=1080&quality=85"
+            println("DEBUG buildLargeImageUrl: $url")
+            url
+        }
+    }
+    
+    fun getStreamUrl(itemId: String): String? {
+        return apiClient?.let { client ->
+            "${client.baseUrl}/Videos/$itemId/stream"
+        }
+    }
+    
+    suspend fun loadFeaturedContent() {
+        try {
+            val client = apiClient ?: return
+            
+            val userViewsApi = client.userViewsApi
+            val libraries = userViewsApi.getUserViews().content
+            
+            // Collect featured items from all libraries
+            val allFeaturedItems = mutableListOf<MediaItem>()
+            
+            libraries?.items?.forEach { library ->
+                try {
+                    val itemsApi = client.itemsApi
+                    
+                    // Get recently added items from this library (could be movies, shows, etc.)
+                    val response = itemsApi.getItems(
+                        parentId = library.id,
+                        sortBy = setOf(ItemSortBy.DATE_CREATED),
+                        sortOrder = setOf(SortOrder.DESCENDING),
+                        fields = setOf(ItemFields.PRIMARY_IMAGE_ASPECT_RATIO, ItemFields.OVERVIEW),
+                        limit = 5 // Get top 5 from each library
+                    )
+                    
+                    val items = response.content.items?.mapNotNull { movie ->
+                        // Only include items that have overview and backdrop for featured display
+                        if (movie.overview?.isNotEmpty() == true) {
+                            MediaItem(
+                                id = movie.id.toString(),
+                                name = movie.name ?: "Unknown",
+                                overview = movie.overview,
+                                imageUrl = buildImageUrl(movie.id.toString(), "Primary"),
+                                backdropUrl = buildLargeImageUrl(movie.id.toString(), "Backdrop"),
+                                type = movie.type ?: BaseItemKind.FOLDER,
+                                runTimeTicks = movie.runTimeTicks,
+                                userData = movie.userData?.let { userData ->
+                                    UserData(
+                                        played = userData.played == true,
+                                        playbackPositionTicks = userData.playbackPositionTicks,
+                                        playCount = userData.playCount
+                                    )
+                                },
+                                productionYear = movie.productionYear,
+                                communityRating = movie.communityRating?.toDouble()
+                            )
+                        } else null
+                    } ?: emptyList()
+                    
+                    allFeaturedItems.addAll(items)
+                } catch (e: Exception) {
+                    println("Error loading featured items for library ${library.name}: ${e.message}")
+                }
+            }
+            
+            // Limit total featured items and update state
+            _featuredItems.value = allFeaturedItems.take(10)
+            
+            // Set the first item as the main featured item
+            if (allFeaturedItems.isNotEmpty()) {
+                _featuredItem.value = allFeaturedItems.first()
+            }
+            
+        } catch (e: Exception) {
+            println("Error loading featured content: ${e.message}")
+        }
+    }
+    
+    suspend fun loadRecentlyAdded() {
+        val client = apiClient ?: return
+        
+        try {
+            val userViewsApi = client.userViewsApi
+            val libraries = userViewsApi.getUserViews().content
+            
+            val recentlyAddedMap = mutableMapOf<String, List<MediaItem>>()
+            
+            libraries?.items?.forEach { library ->
+                try {
+                    val itemsApi = client.itemsApi
+                    val libraryName = library.name ?: "Unknown"
+                    
+                    // Check if this is a TV library by checking for "TV" or "Show" in the name
+                    // Also check the library type/collection type
+                    val isTvLibrary = libraryName.contains("TV", ignoreCase = true) || 
+                                     libraryName.contains("Show", ignoreCase = true) ||
+                                     libraryName.contains("Series", ignoreCase = true) ||
+                                     library.collectionType?.toString() == "tvshows"
+                    
+                    println("Library: $libraryName, Type: ${library.collectionType}, isTvLibrary: $isTvLibrary")
+                    
+                    if (isTvLibrary) {
+                        println("Loading episodes for TV library: $libraryName")
+                        // For TV libraries, load recently added episodes
+                        val response = itemsApi.getItems(
+                            parentId = library.id,
+                            includeItemTypes = setOf(BaseItemKind.EPISODE),
+                            sortBy = setOf(ItemSortBy.DATE_CREATED),
+                            sortOrder = setOf(SortOrder.DESCENDING),
+                            fields = setOf(
+                                ItemFields.PRIMARY_IMAGE_ASPECT_RATIO, 
+                                ItemFields.OVERVIEW
+                            ),
+                            limit = 10
+                        )
+                        
+                        println("Episodes found: ${response.content.items?.size ?: 0}")
+                        
+                        val items = response.content.items?.mapNotNull { episode ->
+                            // For episodes, we need to get the series information
+                            val seriesId = episode.seriesId?.toString()
+                            val seriesName = episode.seriesName
+                            val seasonName = episode.seasonName
+                            val episodeNumber = episode.indexNumber
+                            
+                            println("Episode: ${episode.name}, Series: $seriesName, Season: $seasonName, Ep: $episodeNumber")
+                            
+                            // Build episode name with season and episode info
+                            val episodeName = buildString {
+                                if (seasonName != null && episodeNumber != null) {
+                                    append("$seasonName E$episodeNumber")
+                                } else if (episodeNumber != null) {
+                                    append("Episode $episodeNumber")
+                                }
+                                if (episode.name != null && episode.name != seriesName) {
+                                    if (isNotEmpty()) append(" - ")
+                                    append(episode.name)
+                                }
+                            }.takeIf { it.isNotEmpty() } ?: episode.name ?: "Episode"
+                            
+                            MediaItem(
+                                id = episode.id.toString(),
+                                name = episodeName,
+                                overview = episode.overview,
+                                imageUrl = seriesId?.let { buildImageUrl(it, "Primary") }, // Use series poster
+                                backdropUrl = buildLargeImageUrl(episode.id.toString(), "Backdrop") 
+                                    ?: seriesId?.let { buildLargeImageUrl(it, "Backdrop") }, // Episode or series backdrop
+                                type = episode.type ?: BaseItemKind.EPISODE,
+                                runTimeTicks = episode.runTimeTicks,
+                                userData = episode.userData?.let { userData ->
+                                    UserData(
+                                        played = userData.played == true,
+                                        playbackPositionTicks = userData.playbackPositionTicks,
+                                        playCount = userData.playCount
+                                    )
+                                },
+                                productionYear = episode.productionYear,
+                                communityRating = episode.communityRating?.toDouble(),
+                                // Episode-specific fields
+                                episodeName = episodeName,
+                                seriesName = seriesName,
+                                seriesId = seriesId,
+                                seriesPosterUrl = seriesId?.let { buildImageUrl(it, "Primary") }
+                            )
+                        } ?: emptyList()
+                        
+                        if (items.isNotEmpty()) {
+                            recentlyAddedMap["Recently Added Episodes - $libraryName"] = items
+                        }
+                    } else {
+                        // For non-TV libraries, use the existing logic
+                        val response = itemsApi.getItems(
+                            parentId = library.id,
+                            sortBy = setOf(ItemSortBy.DATE_CREATED),
+                            sortOrder = setOf(SortOrder.DESCENDING),
+                            fields = setOf(ItemFields.PRIMARY_IMAGE_ASPECT_RATIO, ItemFields.OVERVIEW),
+                            limit = 10
+                        )
+                        
+                        val items = response.content.items?.map { item ->
+                            MediaItem(
+                                id = item.id.toString(),
+                                name = item.name ?: "Unknown",
+                                overview = item.overview,
+                                imageUrl = buildImageUrl(item.id.toString(), "Primary"),
+                                backdropUrl = buildLargeImageUrl(item.id.toString(), "Backdrop"),
+                                type = item.type ?: BaseItemKind.FOLDER,
+                                runTimeTicks = item.runTimeTicks,
+                                userData = item.userData?.let { userData ->
+                                    UserData(
+                                        played = userData.played == true,
+                                        playbackPositionTicks = userData.playbackPositionTicks,
+                                        playCount = userData.playCount
+                                    )
+                                },
+                                productionYear = item.productionYear,
+                                communityRating = item.communityRating?.toDouble()
+                            )
+                        } ?: emptyList()
+                        
+                        if (items.isNotEmpty()) {
+                            recentlyAddedMap["Recently Added - $libraryName"] = items
+                        }
+                    }
+                } catch (e: Exception) {
+                    println("Error loading recently added for library ${library.name}: ${e.message}")
+                }
+            }
+            
+            _recentlyAdded.value = recentlyAddedMap
+            
+        } catch (e: Exception) {
+            println("Error loading recently added content: ${e.message}")
+        }
+    }
+}
