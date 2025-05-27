@@ -58,6 +58,7 @@ dependencies {
     
     // Material 3 for regular compose components
     implementation(libs.androidx.material3)
+    implementation("androidx.compose.material:material-icons-extended")
     
     // Jellyfin SDK
     implementation(libs.jellyfin.sdk.android)

@@ -60,7 +60,7 @@ fun <T> FocusAwareLazyRow(
     onItemFocus: (Int, T) -> Unit = { _, _ -> },
     itemContent: @Composable (Int, T, Boolean) -> Unit
 ) {
-    var focusedIndex by remember { mutableStateOf(0) }
+    var focusedIndex by remember { mutableIntStateOf(0) }
 
     // Auto-scroll to focused item
     LaunchedEffect(focusedIndex) {

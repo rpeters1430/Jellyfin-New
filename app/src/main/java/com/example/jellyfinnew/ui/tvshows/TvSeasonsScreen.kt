@@ -2,7 +2,7 @@ package com.example.jellyfinnew.ui.tvshows
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,12 +36,12 @@ fun TvSeasonsScreen(
     val seasons by viewModel.tvSeasons.collectAsStateWithLifecycle()
     val currentSeries by viewModel.currentSeries.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
-    var focusedSeasonIndex by remember { mutableStateOf(0) }
-    
+    var focusedSeasonIndex by remember { mutableIntStateOf(0) }
+
     LaunchedEffect(Unit) {
         viewModel.loadSeasons()
     }
-    
+
     Box(modifier = modifier.fillMaxSize()) {
         // Background image from focused season or series
         val backgroundImage = if (seasons.isNotEmpty() && focusedSeasonIndex < seasons.size) {
@@ -49,7 +49,7 @@ fun TvSeasonsScreen(
         } else {
             currentSeries?.backdropUrl
         }
-        
+
         backgroundImage?.let { imageUrl ->
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -64,7 +64,7 @@ fun TvSeasonsScreen(
                 alpha = 0.4f
             )
         }
-        
+
         // Dark overlay for better text readability
         Box(
             modifier = Modifier
@@ -78,7 +78,7 @@ fun TvSeasonsScreen(
                     )
                 )
         )
-        
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -88,7 +88,7 @@ fun TvSeasonsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 32.dp),
+                    .padding(bottom = 24.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
@@ -100,7 +100,7 @@ fun TvSeasonsScreen(
                 ) {
                     Text("← Back to TV Shows")
                 }
-                
+
                 Column {
                     Text(
                         text = currentSeries?.name ?: "TV Series",
@@ -108,7 +108,7 @@ fun TvSeasonsScreen(
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
-                    
+
                     currentSeries?.productionYear?.let { year ->
                         Text(
                             text = year.toString(),
@@ -119,7 +119,7 @@ fun TvSeasonsScreen(
                     }
                 }
             }
-            
+
             if (connectionState.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -137,27 +137,106 @@ fun TvSeasonsScreen(
                         fontSize = 20.sp,
                         color = Color.White.copy(alpha = 0.7f)
                     )
-                }            } else {
-                // TV-optimized seasons list
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                }
+            } else {
+                // Immersive seasons list with horizontal cards
+                ImmersiveSeasonsList(
+                    seasons = seasons,
+                    currentSeries = currentSeries,
+                    onSeasonClick = { season ->
+                        currentSeries?.let { series ->
+                            onSeasonClick(series.id, season.id)
+                        }
+                    },
+                    onFocusChanged = { index ->
+                        focusedSeasonIndex = index
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ImmersiveSeasonsList(
+    seasons: List<MediaItem>,
+    currentSeries: MediaItem?,
+    onSeasonClick: (MediaItem) -> Unit,
+    onFocusChanged: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var selectedIndex by remember { mutableIntStateOf(0) }
+    val selectedSeason = if (seasons.isNotEmpty() && selectedIndex < seasons.size) {
+        seasons[selectedIndex]
+    } else null
+
+    LaunchedEffect(selectedIndex) {
+        onFocusChanged(selectedIndex)
+    }
+
+    Column(
+        modifier = modifier.fillMaxSize()
+    ) {
+        // Details section for focused season (top 40% of screen)
+        selectedSeason?.let { season ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.4f)
+                    .padding(24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.align(Alignment.BottomStart),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(seasons) { index, season ->
-                        SeasonCard(
-                            season = season,
-                            seriesId = currentSeries?.id ?: "",
-                            onClick = { 
-                                currentSeries?.let { series ->
-                                    onSeasonClick(series.id, season.id)
-                                }
-                            },
-                            onFocus = { 
-                                focusedSeasonIndex = index
-                            }
+                    Text(
+                        text = season.name,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    season.overview?.let { overview ->
+                        Text(
+                            text = overview,
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.9f),
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.padding(top = 8.dp)
                         )
                     }
+                }
+            }
+        }
+
+        // Seasons horizontal row (bottom 60% of screen)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(horizontal = 24.dp)
+        ) {
+            LazyRow(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
+            ) {
+                itemsIndexed(seasons) { index, season ->
+                    val isSelected = index == selectedIndex
+
+                    HorizontalSeasonCard(
+                        season = season,
+                        isSelected = isSelected,
+                        onClick = { onSeasonClick(season) },
+                        onFocus = {
+                            selectedIndex = index
+                        }
+                    )
                 }
             }
         }
@@ -166,20 +245,20 @@ fun TvSeasonsScreen(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SeasonCard(
+private fun HorizontalSeasonCard(
     season: MediaItem,
-    seriesId: String,
+    isSelected: Boolean,
     onClick: () -> Unit,
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    
+
     Card(
         onClick = onClick,
         modifier = modifier
-            .fillMaxWidth()
-            .height(140.dp)
+            .width(280.dp)
+            .height(160.dp) // Horizontal card dimensions
             .onFocusChanged { focusState ->
                 isFocused = focusState.isFocused
                 if (focusState.isFocused) {
@@ -187,85 +266,89 @@ private fun SeasonCard(
                 }
             },
         scale = CardDefaults.scale(
-            scale = if (isFocused) 1.05f else 1.0f,
-            focusedScale = 1.05f
+            scale = if (isSelected) 1.05f else 1.0f,
+            focusedScale = 1.1f
         ),
         colors = CardDefaults.colors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+            containerColor = Color.Transparent
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            // Season poster
+        Box {
+            // Season image (horizontal)
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(season.imageUrl)
                     .crossfade(true)
                     .build(),
                 contentDescription = season.name,
-                modifier = Modifier
-                    .width(80.dp)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(8.dp)),
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            
-            // Season info
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = season.name,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    season.overview?.let { overview ->
-                        Text(
-                            text = overview,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 8.dp)
+
+            // Selected indicator overlay
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                         )
-                    }
-                }
-                
-                // Watch progress indicator
-                season.userData?.let { userData ->
-                    if (userData.played || (userData.playbackPositionTicks ?: 0) > 0) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        Color.Green.copy(alpha = 0.8f),
-                                        RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    text = if (userData.played) "Watched" else "In Progress",
-                                    fontSize = 12.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                )
+            }
+
+            // Focus indicator
+            if (isFocused) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White.copy(alpha = 0.1f))
+                )
+            }
+
+            // Title overlay
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.8f)
+                            )
+                        )
+                    )
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = season.name,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Watch progress indicator
+            season.userData?.let { userData ->
+                if (userData.played || (userData.playbackPositionTicks ?: 0) > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .background(
+                                Color.Green.copy(alpha = 0.9f),
+                                RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = if (userData.played) "✓" else "▶",
+                            fontSize = 10.sp,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }

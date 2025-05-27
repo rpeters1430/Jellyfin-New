@@ -5,6 +5,7 @@ import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import org.jellyfin.sdk.createJellyfin
 import java.util.UUID
 import org.jellyfin.sdk.api.client.ApiClient
@@ -167,10 +168,16 @@ class JellyfinRepository(androidContext: Context) {
                 errorMessage = "Failed to load libraries"
             )
 
+            // Add small delay to prevent rapid cancellation
+            kotlinx.coroutines.delay(100)
+
             safeApiCall(
                 operation = { loadFeaturedContent() },
                 errorMessage = "Failed to load featured content"
             )
+
+            // Add small delay to prevent rapid cancellation
+            kotlinx.coroutines.delay(100)
 
             safeApiCall(
                 operation = { loadRecentlyAdded() },
@@ -314,6 +321,7 @@ class JellyfinRepository(androidContext: Context) {
                     Log.d(TAG, "Library: $libraryName, Type: ${library.collectionType}, isTvLibrary: $isTvLibrary")
 
                     if (isTvLibrary) {
+                        Log.d(TAG, "Loading recently added episodes for TV library: $libraryName")
                         val response = itemsApi.getItems(
                             parentId = library.id,
                             includeItemTypes = setOf(BaseItemKind.EPISODE),
@@ -321,17 +329,36 @@ class JellyfinRepository(androidContext: Context) {
                             sortOrder = setOf(SortOrder.DESCENDING),
                             fields = setOf(
                                 ItemFields.PRIMARY_IMAGE_ASPECT_RATIO,
-                                ItemFields.OVERVIEW
+                                ItemFields.OVERVIEW,
+                                ItemFields.SERIES_PRIMARY_IMAGE,
+                                ItemFields.SERIES_STUDIO,
+                                ItemFields.DATE_CREATED
                             ),
-                            limit = 10
+                            limit = 10,
+                            recursive = true // This ensures we search all subdirectories
                         )
+
+                        Log.d(TAG, "Found ${response.content.items?.size ?: 0} episodes for $libraryName")
 
                         val items = response.content.items?.mapNotNull { episode ->
                             createEpisodeMediaItem(episode, helper)
                         } ?: emptyList()
 
+                        Log.d(TAG, "Processed ${items.size} episode items for $libraryName")
+
                         if (items.isNotEmpty()) {
                             recentlyAddedMap["Recently Added Episodes - $libraryName"] = items
+                            Log.d(TAG, "Added recently added episodes section: Recently Added Episodes - $libraryName")
+                        } else {
+                            Log.d(TAG, "No recent episodes found for $libraryName - checking if episodes exist at all")
+                            // Try to get any episodes to see if the library has episodes
+                            val anyEpisodesResponse = itemsApi.getItems(
+                                parentId = library.id,
+                                includeItemTypes = setOf(BaseItemKind.EPISODE),
+                                limit = 5,
+                                recursive = true
+                            )
+                            Log.d(TAG, "Total episodes in $libraryName: ${anyEpisodesResponse.content.items?.size ?: 0}")
                         }
                     } else {
                         val response = itemsApi.getItems(
@@ -356,7 +383,10 @@ class JellyfinRepository(androidContext: Context) {
             }
 
             _recentlyAdded.value = recentlyAddedMap
-            Log.d(TAG, "Loaded recently added content for ${recentlyAddedMap.size} libraries")
+            Log.d(TAG, "Loaded recently added content for ${recentlyAddedMap.size} libraries:")
+            recentlyAddedMap.forEach { (section, items) ->
+                Log.d(TAG, "  - $section: ${items.size} items")
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "Error loading recently added content", e)
@@ -626,6 +656,9 @@ class JellyfinRepository(androidContext: Context) {
             onSuccess(result)
         } catch (e: ApiClientException) {
             Log.e(TAG, "$errorMessage: API error", e)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Expected when navigation cancels operations - don't log as error
+            Log.d(TAG, "$errorMessage: Operation cancelled (navigation)")
         } catch (e: Exception) {
             Log.e(TAG, "$errorMessage: Unexpected error", e)
         }

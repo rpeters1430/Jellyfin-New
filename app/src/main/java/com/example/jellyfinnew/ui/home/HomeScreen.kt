@@ -29,6 +29,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
 import com.example.jellyfinnew.ui.home.components.*
+import com.example.jellyfinnew.ui.utils.TvOptimizations
 import org.jellyfin.sdk.model.api.BaseItemKind
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -39,32 +40,20 @@ fun HomeScreen(
     onNavigateToTvShows: (String) -> Unit,
     onDisconnect: () -> Unit,
     modifier: Modifier = Modifier
-) {
-    val mediaLibraries by viewModel.mediaLibraries.collectAsStateWithLifecycle()
+) {    val mediaLibraries by viewModel.mediaLibraries.collectAsStateWithLifecycle()
     val currentLibraryItems by viewModel.currentLibraryItems.collectAsStateWithLifecycle()
     val featuredItems by viewModel.featuredItems.collectAsStateWithLifecycle()
     val recentlyAdded by viewModel.recentlyAdded.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
-
     var selectedLibraryId by remember { mutableStateOf<String?>(null) }
     var focusedItemImageUrl by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Background image that changes based on focused item
-        focusedItemImageUrl?.let { imageUrl ->
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(imageUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black),
-                contentScale = ContentScale.Crop,
-                alpha = 0.3f
-            )
-        }
+        // Optimized background image with debounced updates
+        TvOptimizations.DebouncedBackgroundImage(
+            imageUrl = focusedItemImageUrl,
+            debounceMs = 300L // Faster response for TV
+        )
 
         // Handle connection state
         when {
@@ -140,25 +129,28 @@ private fun MainHomeContent(
     onFocusChange: (String?) -> Unit,
     onDisconnect: () -> Unit,
     modifier: Modifier = Modifier
-) {
-    LazyColumn(
+) {    LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(32.dp)
+        contentPadding = PaddingValues(TvOptimizations.TvListDefaults.contentPadding),
+        verticalArrangement = Arrangement.spacedBy(TvOptimizations.TvListDefaults.sectionSpacing)
     ) {
         // Header
         item {
             HomeHeader(onDisconnect = onDisconnect)
         }
 
-        // Featured Carousel
-        if (featuredItems.isNotEmpty()) {
-            item {
-                EnhancedFeaturedCarousel(
-                    featuredItems = featuredItems,
-                    onPlayClick = onPlayMedia,
-                    onFocus = onFocusChange
-                )
+        // Featured Carousel - closer to header
+        if (featuredItems.isNotEmpty()) {            item {
+                Column(
+                    modifier = Modifier.padding(top = TvOptimizations.TvSpacing.small),
+                    verticalArrangement = Arrangement.spacedBy(TvOptimizations.TvSpacing.medium)
+                ) {
+                    EnhancedFeaturedCarousel(
+                        featuredItems = featuredItems,
+                        onPlayClick = onPlayMedia,
+                        onFocus = onFocusChange
+                    )
+                }
             }
         }
 

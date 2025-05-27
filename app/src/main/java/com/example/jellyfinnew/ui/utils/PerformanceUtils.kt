@@ -14,6 +14,7 @@ import android.content.Context
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import java.util.Locale
 
 /**
  * Performance utilities for TV-optimized media loading and state management
@@ -149,7 +150,7 @@ fun Long.formatDuration(): String {
     }
 }
 
-fun Double.formatRating(): String = String.format("%.1f", this)
+fun Double.formatRating(): String = String.format(Locale.getDefault(), "%.1f", this)
 
 /**
  * Debounced search/filter utility for TV input

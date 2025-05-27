@@ -2,7 +2,7 @@ package com.example.jellyfinnew.ui.tvshows
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,6 +24,7 @@ import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
+import java.util.Locale
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -37,22 +38,22 @@ fun TvEpisodesScreen(
     val currentSeries by viewModel.currentSeries.collectAsStateWithLifecycle()
     val currentSeason by viewModel.currentSeason.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
-    var focusedEpisodeIndex by remember { mutableStateOf(0) }
-    
+    var focusedEpisodeIndex by remember { mutableIntStateOf(0) }
+
     LaunchedEffect(Unit) {
         viewModel.loadEpisodes()
     }
-    
+
     Box(modifier = modifier.fillMaxSize()) {
         // Background image from focused episode, season, or series
         val backgroundImage = if (episodes.isNotEmpty() && focusedEpisodeIndex < episodes.size) {
-            episodes[focusedEpisodeIndex].backdropUrl 
-                ?: currentSeason?.backdropUrl 
+            episodes[focusedEpisodeIndex].backdropUrl
+                ?: currentSeason?.backdropUrl
                 ?: currentSeries?.backdropUrl
         } else {
             currentSeason?.backdropUrl ?: currentSeries?.backdropUrl
         }
-        
+
         backgroundImage?.let { imageUrl ->
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -67,7 +68,7 @@ fun TvEpisodesScreen(
                 alpha = 0.4f
             )
         }
-        
+
         // Dark overlay for better text readability
         Box(
             modifier = Modifier
@@ -81,7 +82,7 @@ fun TvEpisodesScreen(
                     )
                 )
         )
-        
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -91,7 +92,7 @@ fun TvEpisodesScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 32.dp),
+                    .padding(bottom = 24.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
@@ -103,7 +104,7 @@ fun TvEpisodesScreen(
                 ) {
                     Text("← Back to Seasons")
                 }
-                
+
                 Column {
                     Text(
                         text = currentSeries?.name ?: "TV Series",
@@ -111,7 +112,7 @@ fun TvEpisodesScreen(
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
-                    
+
                     Text(
                         text = currentSeason?.name ?: "Season",
                         fontSize = 20.sp,
@@ -121,7 +122,7 @@ fun TvEpisodesScreen(
                     )
                 }
             }
-            
+
             if (connectionState.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -139,24 +140,124 @@ fun TvEpisodesScreen(
                         fontSize = 20.sp,
                         color = Color.White.copy(alpha = 0.7f)
                     )
-                }            } else {
-                // Episodes list
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                }
+            } else {
+                // Immersive episodes list with horizontal cards
+                ImmersiveEpisodesList(
+                    episodes = episodes,
+                    onEpisodeClick = onEpisodeClick,
+                    onFocusChanged = { index ->
+                        focusedEpisodeIndex = index
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ImmersiveEpisodesList(
+    episodes: List<MediaItem>,
+    onEpisodeClick: (String) -> Unit,
+    onFocusChanged: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var selectedIndex by remember { mutableIntStateOf(0) }
+    val selectedEpisode = if (episodes.isNotEmpty() && selectedIndex < episodes.size) {
+        episodes[selectedIndex]
+    } else null
+
+    LaunchedEffect(selectedIndex) {
+        onFocusChanged(selectedIndex)
+    }
+
+    Column(
+        modifier = modifier.fillMaxSize()
+    ) {
+        // Details section for focused episode (top 45% of screen)
+        selectedEpisode?.let { episode ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.45f)
+                    .padding(24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.align(Alignment.BottomStart),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(episodes) { index, episode ->
-                        EpisodeCard(
-                            episode = episode,
-                            onClick = { 
-                                onEpisodeClick(episode.id)
-                            },
-                            onFocus = { 
-                                focusedEpisodeIndex = index
-                            }
+                    Text(
+                        text = episode.name,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    // Episode metadata
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        episode.runTimeTicks?.let { ticks ->
+                            val minutes = (ticks / 10_000_000 / 60).toInt()
+                            Text(
+                                text = "${minutes}m",
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontWeight = FontWeight.Medium
+                            )                        }
+
+                        episode.communityRating?.let { rating ->
+                            Text(
+                                text = "★ ${String.format(Locale.getDefault(), "%.1f", rating)}",
+                                fontSize = 14.sp,
+                                color = Color.Yellow,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    episode.overview?.let { overview ->
+                        Text(
+                            text = overview,
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.9f),
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.padding(top = 8.dp)
                         )
                     }
+                }
+            }
+        }
+
+        // Episodes horizontal row (bottom 55% of screen)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(horizontal = 24.dp)
+        ) {
+            LazyRow(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
+            ) {
+                itemsIndexed(episodes) { index, episode ->
+                    val isSelected = index == selectedIndex
+
+                    HorizontalEpisodeCard(
+                        episode = episode,
+                        isSelected = isSelected,
+                        onClick = { onEpisodeClick(episode.id) },
+                        onFocus = {
+                            selectedIndex = index
+                        }
+                    )
                 }
             }
         }
@@ -165,19 +266,20 @@ fun TvEpisodesScreen(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun EpisodeCard(
+private fun HorizontalEpisodeCard(
     episode: MediaItem,
+    isSelected: Boolean,
     onClick: () -> Unit,
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    
+
     Card(
         onClick = onClick,
         modifier = modifier
-            .fillMaxWidth()
-            .height(160.dp)
+            .width(320.dp)
+            .height(180.dp) // Horizontal card dimensions
             .onFocusChanged { focusState ->
                 isFocused = focusState.isFocused
                 if (focusState.isFocused) {
@@ -185,114 +287,103 @@ private fun EpisodeCard(
                 }
             },
         scale = CardDefaults.scale(
-            scale = if (isFocused) 1.05f else 1.0f,
-            focusedScale = 1.05f
+            scale = if (isSelected) 1.05f else 1.0f,
+            focusedScale = 1.1f
         ),
         colors = CardDefaults.colors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+            containerColor = Color.Transparent
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            // Episode thumbnail
+        Box {
+            // Episode thumbnail (horizontal)
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(episode.imageUrl)
                     .crossfade(true)
                     .build(),
                 contentDescription = episode.name,
-                modifier = Modifier
-                    .width(200.dp)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(12.dp)),
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            
-            // Episode info
-            Column(
+
+            // Selected indicator overlay
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                        )
+                )
+            }
+
+            // Focus indicator
+            if (isFocused) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White.copy(alpha = 0.1f))
+                )
+            }
+
+            // Title overlay
+            Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.8f)
+                            )
+                        )
+                    )
+                    .padding(12.dp)
             ) {
                 Column {
                     Text(
                         text = episode.name,
-                        fontSize = 22.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
+                        color = Color.White,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    
-                    episode.overview?.let { overview ->
+
+                    // Runtime if available
+                    episode.runTimeTicks?.let { ticks ->
+                        val minutes = (ticks / 10_000_000 / 60).toInt()
                         Text(
-                            text = overview,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 8.dp)
+                            text = "${minutes}m",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.padding(top = 2.dp)
                         )
                     }
                 }
-                
-                // Episode metadata and progress
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            }
+
+            // Watch progress indicator
+            episode.userData?.let { userData ->
+                if (userData.played || (userData.playbackPositionTicks ?: 0) > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .background(
+                                if (userData.played) Color.Green.copy(alpha = 0.9f)
+                                else Color.Blue.copy(alpha = 0.9f),
+                                RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 4.dp)
                     ) {
-                        // Runtime
-                        episode.runTimeTicks?.let { ticks ->
-                            val minutes = (ticks / 10_000_000 / 60).toInt()
-                            Text(
-                                text = "${minutes}m",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        
-                        // Rating
-                        episode.communityRating?.let { rating ->
-                            Text(
-                                text = "★ ${String.format("%.1f", rating)}",
-                                fontSize = 12.sp,
-                                color = Color(0xFFFFD700), // Gold color
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                    
-                    // Watch progress indicator
-                    episode.userData?.let { userData ->
-                        if (userData.played || (userData.playbackPositionTicks ?: 0) > 0) {
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        if (userData.played) Color.Green.copy(alpha = 0.8f) 
-                                        else Color.Blue.copy(alpha = 0.8f),
-                                        RoundedCornerShape(6.dp)
-                                    )
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = if (userData.played) "Watched" else "In Progress",
-                                    fontSize = 12.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                        Text(
+                            text = if (userData.played) "✓" else "▶",
+                            fontSize = 10.sp,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }

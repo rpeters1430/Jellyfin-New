@@ -24,7 +24,9 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
 import com.example.jellyfinnew.ui.utils.TvFocusableCard
+import com.example.jellyfinnew.ui.utils.TvOptimizations
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 /**
  * Enhanced Featured Carousel with better TV optimization
@@ -77,7 +79,7 @@ fun EnhancedFeaturedCarousel(
             onClick = { onPlayClick(currentItem.id) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(320.dp),
+                .height(420.dp), // Increased from 320dp to 420dp
             onFocus = { isPaused = true },
             onUnfocus = { isPaused = false },
             shape = CardDefaults.shape(RoundedCornerShape(16.dp)),
@@ -102,14 +104,10 @@ private fun FeaturedItemContent(
     isFocused: Boolean,
     currentIndex: Int,
     totalItems: Int
-) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Background image
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(item.backdropUrl ?: item.imageUrl)
-                .crossfade(true)
-                .build(),
+) {    Box(modifier = Modifier.fillMaxSize()) {
+        // Optimized background image
+        TvOptimizations.OptimizedAsyncImage(
+            imageUrl = item.backdropUrl ?: item.imageUrl,
             contentDescription = item.name,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
@@ -150,10 +148,9 @@ private fun FeaturedItemContent(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(vertical = 8.dp)
-            ) {
-                item.communityRating?.let { rating ->
+            ) {                item.communityRating?.let { rating ->
                     Text(
-                        text = "★ ${String.format("%.1f", rating)}",
+                        text = "★ ${String.format(Locale.getDefault(), "%.1f", rating)}",
                         fontSize = 16.sp,
                         color = Color.Yellow,
                         fontWeight = FontWeight.Medium
@@ -240,7 +237,7 @@ fun MediaLibrarySection(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(TvOptimizations.TvSpacing.medium)
     ) {
         Text(
             text = "Libraries",
@@ -271,10 +268,9 @@ fun MediaLibrarySection(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
-        } else {
-            LazyRow(
+        } else {            LazyRow(
                 contentPadding = PaddingValues(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(TvOptimizations.TvListDefaults.itemSpacing)
             ) {
                 items(libraries) { library ->
                     LibraryCard(
@@ -297,33 +293,28 @@ private fun LibraryCard(
     onClick: () -> Unit,
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
-) {
-    TvFocusableCard(
+) {    TvFocusableCard(
         onClick = onClick,
-        modifier = modifier.width(280.dp),
+        modifier = modifier.width(320.dp), // Increased from 280dp
         onFocus = onFocus,
         shape = CardDefaults.shape(RoundedCornerShape(12.dp)),
-        scale = CardDefaults.scale(
-            scale = 1.0f,
-            focusedScale = 1.05f
+        scale = TvOptimizations.optimizedCardScale,
+        colors = CardDefaults.colors(
+            containerColor = Color.Transparent // Remove colored background
         )
     ) { isFocused ->
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(8.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp), // Increased spacing
+            modifier = Modifier.padding(12.dp) // Increased padding
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(8.dp))
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(library.imageUrl)
-                        .crossfade(true)
-                        .build(),
+            ) {                TvOptimizations.OptimizedAsyncImage(
+                    imageUrl = library.imageUrl,
                     contentDescription = library.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -340,12 +331,14 @@ private fun LibraryCard(
 
             Text(
                 text = library.name,
-                fontSize = if (isFocused) 16.sp else 14.sp,
+                fontSize = if (isFocused) 18.sp else 16.sp, // Increased font size
                 fontWeight = FontWeight.Medium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
             )
         }
     }
@@ -376,7 +369,7 @@ fun RecentlyAddedSection(
 
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp) // Recently added cards spacing
             ) {
                 items(items) { item ->
                     MediaCard(
@@ -402,17 +395,20 @@ private fun MediaCard(
 ) {
     TvFocusableCard(
         onClick = onClick,
-        modifier = modifier.width(160.dp),
+        modifier = modifier.width(180.dp), // Increased from 160dp
         onFocus = onFocus,
         shape = CardDefaults.shape(RoundedCornerShape(8.dp)),
         scale = CardDefaults.scale(
             scale = 1.0f,
             focusedScale = 1.05f
+        ),
+        colors = CardDefaults.colors(
+            containerColor = Color.Transparent // Remove colored background
         )
     ) { isFocused ->
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp) // Increased spacing
         ) {
             Box(
                 modifier = Modifier
@@ -480,39 +476,43 @@ private fun MediaCard(
                 }
             }
 
-            // Title and metadata
+            // Title and metadata - centered
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .padding(horizontal = 4.dp)
-                    .height(48.dp), // Fixed height to prevent layout shift
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .height(60.dp), // Fixed height to prevent layout shift
                 verticalArrangement = Arrangement.Top
             ) {
                 if (mediaItem.episodeName != null && mediaItem.seriesName != null) {
                     Text(
                         text = mediaItem.episodeName,
-                        fontSize = if (isFocused) 13.sp else 12.sp,
+                        fontSize = if (isFocused) 14.sp else 13.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Text(
                         text = mediaItem.seriesName,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 } else {
                     Text(
                         text = mediaItem.name,
-                        fontSize = if (isFocused) 13.sp else 12.sp,
+                        fontSize = if (isFocused) 14.sp else 13.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }

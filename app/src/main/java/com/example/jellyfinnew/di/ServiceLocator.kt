@@ -10,16 +10,15 @@ object ServiceLocator {
     
     @Volatile
     private var userPreferencesManager: UserPreferencesManager? = null
-    
-    fun provideRepository(context: Context): JellyfinRepository {
+      fun provideRepository(context: Context): JellyfinRepository {
         return repository ?: synchronized(this) {
-            repository ?: JellyfinRepository(context).also { repository = it }
+            repository ?: JellyfinRepository(context.applicationContext).also { repository = it }
         }
     }
     
     fun provideUserPreferencesManager(context: Context): UserPreferencesManager {
         return userPreferencesManager ?: synchronized(this) {
-            userPreferencesManager ?: UserPreferencesManager(context).also { userPreferencesManager = it }
+            userPreferencesManager ?: UserPreferencesManager(context.applicationContext).also { userPreferencesManager = it }
         }
     }
 }

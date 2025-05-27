@@ -2,7 +2,6 @@ package com.example.jellyfinnew.ui.tvshows
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -11,14 +10,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +24,7 @@ import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
+import java.util.Locale
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -39,11 +37,11 @@ fun TvShowsScreen(
     val tvShows by viewModel.tvShows.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     var focusedItemImageUrl by remember { mutableStateOf<String?>(null) }
-    
+
     LaunchedEffect(Unit) {
         viewModel.loadTvShows()
     }
-    
+
     Box(modifier = modifier.fillMaxSize()) {
         // Background image that changes based on focused item
         focusedItemImageUrl?.let { imageUrl ->
@@ -60,7 +58,7 @@ fun TvShowsScreen(
                 alpha = 0.3f
             )
         }
-        
+
         // Content overlay
         Column(
             modifier = Modifier
@@ -83,7 +81,7 @@ fun TvShowsScreen(
                 ) {
                     Text("← Back")
                 }
-                
+
                 Text(
                     text = "TV Shows",
                     fontSize = 32.sp,
@@ -91,7 +89,7 @@ fun TvShowsScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            
+
             if (connectionState.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -111,7 +109,7 @@ fun TvShowsScreen(
                     )
                 }
             } else {
-                // Immersive List for TV Shows (Android TV pattern)
+                // Immersive List for TV Shows with vertical cards
                 ImmersiveTvShowsList(
                     tvShows = tvShows,
                     onSeriesClick = onSeriesClick,
@@ -130,7 +128,7 @@ private fun ImmersiveTvShowsList(
     onFocus: (String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedIndex by remember { mutableStateOf(0) }
+    var selectedIndex by remember { mutableIntStateOf(0) }
     val selectedSeries = if (tvShows.isNotEmpty() && selectedIndex < tvShows.size) {
         tvShows[selectedIndex]
     } else null
@@ -145,12 +143,12 @@ private fun ImmersiveTvShowsList(
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        // Details section for focused item (top 40% of screen)
+        // Details section for focused item (top 45% of screen)
         selectedSeries?.let { series ->
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.4f)
+                    .fillMaxHeight(0.45f)
                     .padding(24.dp)
             ) {
                 Column(
@@ -159,13 +157,13 @@ private fun ImmersiveTvShowsList(
                 ) {
                     Text(
                         text = series.name,
-                        fontSize = 28.sp,
+                        fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    
+
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -175,24 +173,23 @@ private fun ImmersiveTvShowsList(
                                 text = year.toString(),
                                 fontSize = 16.sp,
                                 color = Color.White.copy(alpha = 0.8f)
-                            )
-                        }
-                        
+                            )                        }
+
                         series.communityRating?.let { rating ->
                             Text(
-                                text = "★ ${String.format("%.1f", rating)}",
+                                text = "★ ${String.format(Locale.getDefault(), "%.1f", rating)}",
                                 fontSize = 16.sp,
                                 color = Color.Yellow
                             )
                         }
                     }
-                    
+
                     series.overview?.let { overview ->
                         Text(
                             text = overview,
                             fontSize = 14.sp,
                             color = Color.White.copy(alpha = 0.9f),
-                            maxLines = 3,
+                            maxLines = 4,
                             overflow = TextOverflow.Ellipsis,
                             lineHeight = 20.sp,
                             modifier = Modifier.padding(top = 8.dp)
@@ -201,24 +198,26 @@ private fun ImmersiveTvShowsList(
                 }
             }
         }
-        
-        // TV Shows horizontal list (bottom 60% of screen)
+
+        // TV Shows vertical grid (bottom 55% of screen)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
                 .padding(horizontal = 24.dp)
         ) {
-            LazyRow(
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(6), // 6 columns of vertical posters
                 modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 16.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(tvShows.size) { index ->
                     val series = tvShows[index]
                     val isSelected = index == selectedIndex
-                    
-                    ImmersiveTvShowCard(
+
+                    VerticalTvShowCard(
                         series = series,
                         isSelected = isSelected,
                         onClick = { onSeriesClick(series.id) },
@@ -235,7 +234,7 @@ private fun ImmersiveTvShowsList(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun ImmersiveTvShowCard(
+private fun VerticalTvShowCard(
     series: MediaItem,
     isSelected: Boolean,
     onClick: () -> Unit,
@@ -243,12 +242,11 @@ private fun ImmersiveTvShowCard(
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    
+
     Card(
         onClick = onClick,
         modifier = modifier
-            .width(180.dp)
-            .aspectRatio(2f / 3f) // Poster aspect ratio
+            .aspectRatio(2f / 3f) // Vertical poster aspect ratio
             .onFocusChanged { focusState ->
                 isFocused = focusState.isFocused
                 if (focusState.isFocused) {
@@ -260,7 +258,7 @@ private fun ImmersiveTvShowCard(
             focusedScale = 1.1f
         ),
         colors = CardDefaults.colors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+            containerColor = Color.Transparent
         )
     ) {
         Box {
@@ -274,7 +272,7 @@ private fun ImmersiveTvShowCard(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            
+
             // Selected indicator overlay
             if (isSelected) {
                 Box(
@@ -284,38 +282,49 @@ private fun ImmersiveTvShowCard(
                             Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                                 )
                             )
                         )
                 )
             }
-            
-            // Title overlay (always visible in immersive list)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.8f)
-                            )
-                        )
-                    )
-                    .padding(8.dp)
-            ) {
-                Text(
-                    text = series.name,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+
+            // Focus indicator
+            if (isFocused) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White.copy(alpha = 0.1f))
                 )
             }
-            
+
+            // Title overlay (only show on focus or selection)
+            if (isFocused || isSelected) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.8f)
+                                )
+                            )
+                        )
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = series.name,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
             // Watch progress indicator
             series.userData?.let { userData ->
                 if (userData.played || (userData.playbackPositionTicks ?: 0) > 0) {

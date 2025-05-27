@@ -3,6 +3,9 @@ package com.example.jellyfinnew.ui.login
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +17,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,12 +31,12 @@ fun LoginScreen(
     viewModel: LoginViewModel,
     onLoginSuccess: () -> Unit,
     modifier: Modifier = Modifier
-) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+) {    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
     val usernameFocusRequester = remember { FocusRequester() }
     val passwordFocusRequester = remember { FocusRequester() }
     val loginButtonFocusRequester = remember { FocusRequester() }
+    var passwordVisible by remember { mutableStateOf(false) }
       // Navigate to home when connected
     LaunchedEffect(uiState.connectionState.isConnected) {
         if (uiState.connectionState.isConnected) {
@@ -97,8 +101,7 @@ fun LoginScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(usernameFocusRequester),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),                    keyboardActions = KeyboardActions(
                         onNext = { focusManager.moveFocus(FocusDirection.Down) }
                     ),
                     singleLine = true
@@ -111,15 +114,39 @@ fun LoginScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(passwordFocusRequester),
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                            )
+                        }
+                    },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(
                         onDone = { 
                             focusManager.clearFocus()
                             viewModel.login()
-                        }                    ),
-                    singleLine = true
-                )
+                        }
+                    ),
+                    singleLine = true                )
+                
+                // Remember Login Checkbox
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = uiState.rememberLogin,
+                        onCheckedChange = viewModel::updateRememberLogin
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Remember login",
+                        fontSize = 16.sp
+                    )
+                }
                 
                 if (uiState.connectionState.error != null) {
                     TvText(
@@ -133,10 +160,10 @@ fun LoginScreen(
                     onClick = viewModel::login,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(loginButtonFocusRequester),
-                    enabled = !uiState.connectionState.isLoading &&
+                        .focusRequester(loginButtonFocusRequester),                    enabled = !uiState.connectionState.isLoading &&
                             uiState.serverUrl.isNotEmpty() &&
-                            uiState.username.isNotEmpty()                ) {
+                            uiState.username.isNotEmpty()
+                ) {
                     if (uiState.connectionState.isLoading) {
                         // Simple loading text for TV
                         TvText("Connecting...")
