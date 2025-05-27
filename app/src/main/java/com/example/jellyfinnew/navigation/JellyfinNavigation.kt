@@ -120,13 +120,15 @@ fun JellyfinNavigation(
                 }
             )
         }
-        
-        composable(
+          composable(
             route = Screen.Player.route,
             arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
-            val homeEntry = remember(navController) { navController.getBackStackEntry(Screen.Home.route) }
+            // Fix memory leak: use remember with backStackEntry as key
+            val homeEntry = remember(backStackEntry) { 
+                navController.getBackStackEntry(Screen.Home.route) 
+            }
             val homeViewModel: HomeViewModel = viewModel(
                 viewModelStoreOwner = homeEntry
             )

@@ -23,10 +23,13 @@ import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
+import com.example.jellyfinnew.ui.components.UnifiedMediaCard
+import com.example.jellyfinnew.ui.components.MediaCardType
 import com.example.jellyfinnew.ui.utils.TvFocusableCard
 import com.example.jellyfinnew.ui.utils.TvOptimizations
 import kotlinx.coroutines.delay
 import java.util.Locale
+import org.jellyfin.sdk.model.api.BaseItemKind
 
 /**
  * Enhanced Featured Carousel with better TV optimization
@@ -293,55 +296,17 @@ private fun LibraryCard(
     onClick: () -> Unit,
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
-) {    TvFocusableCard(
+) {
+    // Use the new UnifiedMediaCard with optimized caching for library cards
+    UnifiedMediaCard(
+        mediaItem = library,
         onClick = onClick,
-        modifier = modifier.width(320.dp), // Increased from 280dp
+        modifier = modifier.width(320.dp),
         onFocus = onFocus,
-        shape = CardDefaults.shape(RoundedCornerShape(12.dp)),
-        scale = TvOptimizations.optimizedCardScale,
-        colors = CardDefaults.colors(
-            containerColor = Color.Transparent // Remove colored background
-        )
-    ) { isFocused ->
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp), // Increased spacing
-            modifier = Modifier.padding(12.dp) // Increased padding
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(8.dp))
-            ) {                TvOptimizations.OptimizedAsyncImage(
-                    imageUrl = library.imageUrl,
-                    contentDescription = library.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-
-                if (isFocused) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.White.copy(alpha = 0.1f))
-                    )
-                }
-            }
-
-            Text(
-                text = library.name,
-                fontSize = if (isFocused) 18.sp else 16.sp, // Increased font size
-                fontWeight = FontWeight.Medium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-            )
-        }
-    }
+        cardType = MediaCardType.BACKDROP, // Libraries use backdrop layout
+        showProgress = false, // Libraries don't have progress
+        showOverlay = true
+    )
 }
 
 /**
@@ -393,131 +358,19 @@ private fun MediaCard(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    TvFocusableCard(
+    // Use the new UnifiedMediaCard with optimized caching
+    UnifiedMediaCard(
+        mediaItem = mediaItem,
         onClick = onClick,
-        modifier = modifier.width(180.dp), // Increased from 160dp
+        modifier = modifier.width(180.dp),
         onFocus = onFocus,
-        shape = CardDefaults.shape(RoundedCornerShape(8.dp)),
-        scale = CardDefaults.scale(
-            scale = 1.0f,
-            focusedScale = 1.05f
-        ),
-        colors = CardDefaults.colors(
-            containerColor = Color.Transparent // Remove colored background
-        )
-    ) { isFocused ->
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp) // Increased spacing
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(2f / 3f)
-                    .clip(RoundedCornerShape(6.dp))
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(mediaItem.seriesPosterUrl ?: mediaItem.imageUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = mediaItem.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-
-                // Progress indicator
-                mediaItem.userData?.let { userData ->
-                    if (userData.played) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(6.dp)
-                                .background(
-                                    Color.Green.copy(alpha = 0.9f),
-                                    RoundedCornerShape(4.dp)
-                                )
-                                .padding(horizontal = 6.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                text = "✓",
-                                fontSize = 10.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    } else if ((userData.playbackPositionTicks ?: 0) > 0) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(6.dp)
-                                .background(
-                                    Color.Blue.copy(alpha = 0.9f),
-                                    RoundedCornerShape(4.dp)
-                                )
-                                .padding(horizontal = 6.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                text = "▶",
-                                fontSize = 8.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                if (isFocused) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.White.copy(alpha = 0.1f))
-                    )
-                }
-            }
-
-            // Title and metadata - centered
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-                    .height(60.dp), // Fixed height to prevent layout shift
-                verticalArrangement = Arrangement.Top
-            ) {
-                if (mediaItem.episodeName != null && mediaItem.seriesName != null) {
-                    Text(
-                        text = mediaItem.episodeName,
-                        fontSize = if (isFocused) 14.sp else 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        text = mediaItem.seriesName,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
-                    Text(
-                        text = mediaItem.name,
-                        fontSize = if (isFocused) 14.sp else 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        }
-    }
+        cardType = when {
+            mediaItem.type == BaseItemKind.EPISODE -> MediaCardType.EPISODE
+            else -> MediaCardType.POSTER
+        },
+        showProgress = true,
+        showOverlay = true
+    )
 }
 
 /**

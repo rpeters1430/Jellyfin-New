@@ -24,6 +24,8 @@ import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
+import com.example.jellyfinnew.ui.components.UnifiedMediaCard
+import com.example.jellyfinnew.ui.components.MediaCardType
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -252,106 +254,16 @@ private fun HorizontalSeasonCard(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Card(
+    // Use the new UnifiedMediaCard with optimized caching
+    UnifiedMediaCard(
+        mediaItem = season,
         onClick = onClick,
         modifier = modifier
             .width(280.dp)
-            .height(160.dp) // Horizontal card dimensions
-            .onFocusChanged { focusState ->
-                isFocused = focusState.isFocused
-                if (focusState.isFocused) {
-                    onFocus()
-                }
-            },
-        scale = CardDefaults.scale(
-            scale = if (isSelected) 1.05f else 1.0f,
-            focusedScale = 1.1f
-        ),
-        colors = CardDefaults.colors(
-            containerColor = Color.Transparent
-        )
-    ) {
-        Box {
-            // Season image (horizontal)
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(season.imageUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = season.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-
-            // Selected indicator overlay
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                        )
-                )
-            }
-
-            // Focus indicator
-            if (isFocused) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White.copy(alpha = 0.1f))
-                )
-            }
-
-            // Title overlay
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.8f)
-                            )
-                        )
-                    )
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = season.name,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Watch progress indicator
-            season.userData?.let { userData ->
-                if (userData.played || (userData.playbackPositionTicks ?: 0) > 0) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .background(
-                                Color.Green.copy(alpha = 0.9f),
-                                RoundedCornerShape(4.dp)
-                            )
-                            .padding(horizontal = 6.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = if (userData.played) "✓" else "▶",
-                            fontSize = 10.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-    }
+            .height(160.dp),
+        onFocus = onFocus,
+        cardType = MediaCardType.BACKDROP, // Seasons use backdrop layout
+        showProgress = true,
+        showOverlay = true
+    )
 }

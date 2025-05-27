@@ -24,6 +24,8 @@ import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
+import com.example.jellyfinnew.ui.components.UnifiedMediaCard
+import com.example.jellyfinnew.ui.components.MediaCardType
 import java.util.Locale
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -241,112 +243,14 @@ private fun VerticalTvShowCard(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Card(
+    // Use the new UnifiedMediaCard with optimized caching
+    UnifiedMediaCard(
+        mediaItem = series,
         onClick = onClick,
-        modifier = modifier
-            .aspectRatio(2f / 3f) // Vertical poster aspect ratio
-            .onFocusChanged { focusState ->
-                isFocused = focusState.isFocused
-                if (focusState.isFocused) {
-                    onFocus()
-                }
-            },
-        scale = CardDefaults.scale(
-            scale = if (isSelected) 1.05f else 1.0f,
-            focusedScale = 1.1f
-        ),
-        colors = CardDefaults.colors(
-            containerColor = Color.Transparent
-        )
-    ) {
-        Box {
-            // Poster Image
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(series.imageUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = series.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-
-            // Selected indicator overlay
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                )
-                            )
-                        )
-                )
-            }
-
-            // Focus indicator
-            if (isFocused) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White.copy(alpha = 0.1f))
-                )
-            }
-
-            // Title overlay (only show on focus or selection)
-            if (isFocused || isSelected) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.8f)
-                                )
-                            )
-                        )
-                        .padding(8.dp)
-                ) {
-                    Text(
-                        text = series.name,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            // Watch progress indicator
-            series.userData?.let { userData ->
-                if (userData.played || (userData.playbackPositionTicks ?: 0) > 0) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                            .background(
-                                Color.Green.copy(alpha = 0.9f),
-                                RoundedCornerShape(4.dp)
-                            )
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = if (userData.played) "✓" else "▶",
-                            fontSize = 8.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-    }
+        modifier = modifier,
+        onFocus = onFocus,
+        cardType = MediaCardType.POSTER,
+        showProgress = true,
+        showOverlay = false // Don't show overlay text for TV shows grid
+    )
 }

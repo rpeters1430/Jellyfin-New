@@ -30,6 +30,8 @@ import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
 import com.example.jellyfinnew.ui.home.components.*
 import com.example.jellyfinnew.ui.utils.TvOptimizations
+import com.example.jellyfinnew.ui.components.UnifiedMediaCard
+import com.example.jellyfinnew.ui.components.MediaCardType
 import org.jellyfin.sdk.model.api.BaseItemKind
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -242,92 +244,16 @@ private fun LibraryItemCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    // Use the new UnifiedMediaCard with optimized caching
+    UnifiedMediaCard(
+        mediaItem = mediaItem,
         onClick = onClick,
-        modifier = modifier.aspectRatio(2f / 3f),
-        scale = CardDefaults.scale(
-            scale = 1.0f,
-            focusedScale = 1.05f
-        ),
-        shape = CardDefaults.shape(RoundedCornerShape(8.dp))
-    ) {
-        Box {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(mediaItem.imageUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = mediaItem.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
-                contentAlignment = Alignment.BottomStart
-            ) {
-                Text(
-                    text = mediaItem.name,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .background(
-                            Color.Black.copy(alpha = 0.7f),
-                            RoundedCornerShape(4.dp)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-
-            // Show progress indicator for partially watched content
-            mediaItem.userData?.let { userData ->
-                if (userData.playbackPositionTicks != null && userData.playbackPositionTicks > 0) {
-                    val progress = mediaItem.runTimeTicks?.let { total ->
-                        if (total > 0) userData.playbackPositionTicks.toFloat() / total.toFloat()
-                        else 0f
-                    } ?: 0f
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .align(Alignment.BottomCenter)
-                            .background(Color.Black.copy(alpha = 0.3f))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(progress)
-                                .fillMaxHeight()
-                                .background(MaterialTheme.colorScheme.primary)
-                        )
-                    }
-                }
-
-                if (userData.played) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .background(
-                                Color.Green.copy(alpha = 0.9f),
-                                androidx.compose.foundation.shape.CircleShape
-                            )
-                            .padding(6.dp)
-                    ) {
-                        Text(
-                            text = "✓",
-                            fontSize = 12.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-    }
+        modifier = modifier,
+        cardType = when (mediaItem.type) {
+            BaseItemKind.EPISODE -> MediaCardType.EPISODE
+            else -> MediaCardType.POSTER
+        },
+        showProgress = true,
+        showOverlay = true
+    )
 }

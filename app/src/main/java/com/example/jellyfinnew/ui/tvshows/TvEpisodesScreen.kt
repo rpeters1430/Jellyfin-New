@@ -24,6 +24,8 @@ import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
+import com.example.jellyfinnew.ui.components.UnifiedMediaCard
+import com.example.jellyfinnew.ui.components.MediaCardType
 import java.util.Locale
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -273,120 +275,16 @@ private fun HorizontalEpisodeCard(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Card(
+    // Use the new UnifiedMediaCard with optimized caching for episodes
+    UnifiedMediaCard(
+        mediaItem = episode,
         onClick = onClick,
         modifier = modifier
             .width(320.dp)
-            .height(180.dp) // Horizontal card dimensions
-            .onFocusChanged { focusState ->
-                isFocused = focusState.isFocused
-                if (focusState.isFocused) {
-                    onFocus()
-                }
-            },
-        scale = CardDefaults.scale(
-            scale = if (isSelected) 1.05f else 1.0f,
-            focusedScale = 1.1f
-        ),
-        colors = CardDefaults.colors(
-            containerColor = Color.Transparent
-        )
-    ) {
-        Box {
-            // Episode thumbnail (horizontal)
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(episode.imageUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = episode.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-
-            // Selected indicator overlay
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                        )
-                )
-            }
-
-            // Focus indicator
-            if (isFocused) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White.copy(alpha = 0.1f))
-                )
-            }
-
-            // Title overlay
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.8f)
-                            )
-                        )
-                    )
-                    .padding(12.dp)
-            ) {
-                Column {
-                    Text(
-                        text = episode.name,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    // Runtime if available
-                    episode.runTimeTicks?.let { ticks ->
-                        val minutes = (ticks / 10_000_000 / 60).toInt()
-                        Text(
-                            text = "${minutes}m",
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                }
-            }
-
-            // Watch progress indicator
-            episode.userData?.let { userData ->
-                if (userData.played || (userData.playbackPositionTicks ?: 0) > 0) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .background(
-                                if (userData.played) Color.Green.copy(alpha = 0.9f)
-                                else Color.Blue.copy(alpha = 0.9f),
-                                RoundedCornerShape(4.dp)
-                            )
-                            .padding(horizontal = 6.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = if (userData.played) "✓" else "▶",
-                            fontSize = 10.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-    }
+            .height(180.dp),
+        onFocus = onFocus,
+        cardType = MediaCardType.EPISODE, // Use episode-specific card type
+        showProgress = true,
+        showOverlay = true
+    )
 }

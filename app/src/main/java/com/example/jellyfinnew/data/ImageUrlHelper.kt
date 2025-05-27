@@ -5,18 +5,24 @@ import org.jellyfin.sdk.api.client.ApiClient
 /**
  * Helper class for building Jellyfin image URLs with consistent parameters
  */
-class ImageUrlHelper(private val apiClient: ApiClient?) {
-
-    companion object {
-        private const val DEFAULT_QUALITY = 85
-        private const val POSTER_WIDTH = 400
-        private const val POSTER_HEIGHT = 600
+class ImageUrlHelper(private val apiClient: ApiClient?) {    companion object {
+        private const val DEFAULT_QUALITY = 90 // Increased quality for better TV viewing
+        
+        // Optimized sizes for TV viewing
+        private const val POSTER_WIDTH = 480
+        private const val POSTER_HEIGHT = 720
         private const val BACKDROP_WIDTH = 1920
         private const val BACKDROP_HEIGHT = 1080
-        private const val THUMB_WIDTH = 800
-        private const val THUMB_HEIGHT = 450
-        private const val LIBRARY_BACKDROP_WIDTH = 1280
-        private const val LIBRARY_BACKDROP_HEIGHT = 720
+        private const val THUMB_WIDTH = 960
+        private const val THUMB_HEIGHT = 540
+        private const val LIBRARY_BACKDROP_WIDTH = 1600
+        private const val LIBRARY_BACKDROP_HEIGHT = 900
+        
+        // Additional sizes for different card types
+        private const val SMALL_POSTER_WIDTH = 320
+        private const val SMALL_POSTER_HEIGHT = 480
+        private const val EPISODE_THUMB_WIDTH = 854
+        private const val EPISODE_THUMB_HEIGHT = 480
     }
 
     private fun buildImageUrl(
@@ -55,6 +61,12 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {
     fun buildLibraryBackdropUrl(itemId: String): String? =
         buildImageUrl(itemId, "Backdrop", LIBRARY_BACKDROP_WIDTH, LIBRARY_BACKDROP_HEIGHT)
 
+    fun buildSmallPosterUrl(itemId: String): String? =
+        buildImageUrl(itemId, "Primary", SMALL_POSTER_WIDTH, SMALL_POSTER_HEIGHT)
+
+    fun buildEpisodeThumbUrl(itemId: String): String? =
+        buildImageUrl(itemId, "Primary", EPISODE_THUMB_WIDTH, EPISODE_THUMB_HEIGHT)
+
     /**
      * Get the best available image URL for library cards (prefer backdrop, fallback to primary/thumb)
      */
@@ -82,6 +94,25 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {
                     append("?api_key=$token")
                 }
             }
+        }
+    }
+
+    /**
+     * Get optimized image URLs based on card type for better caching
+     */
+    fun buildOptimizedImageUrls(itemId: String, cardType: String): Pair<String?, String?> {
+        return when (cardType) {
+            "episode" -> {
+                val thumbUrl = buildEpisodeThumbUrl(itemId)
+                val backdropUrl = buildBackdropUrl(itemId)
+                thumbUrl to backdropUrl
+            }
+            "small" -> {
+                val smallPosterUrl = buildSmallPosterUrl(itemId)
+                val backdropUrl = buildBackdropUrl(itemId)
+                smallPosterUrl to backdropUrl
+            }
+            else -> buildMediaImageUrls(itemId)
         }
     }
 }
