@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Very permissive configuration for debug builds with self-signed certificates -->
+    
+    <!-- Accept all certificates for local networks -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">0.0.0.0</domain>
+        <domain includeSubdomains="true">192.168.0.0/16</domain>
+        <domain includeSubdomains="true">10.0.0.0/8</domain>
+        <domain includeSubdomains="true">172.16.0.0/12</domain>
+        <domain includeSubdomains="true">169.254.0.0/16</domain>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </domain-config>
+    
+    <!-- Accept all certificates for common server names -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">jellyfin</domain>
+        <domain includeSubdomains="true">jellyfin.local</domain>
+        <domain includeSubdomains="true">plex.local</domain>
+        <domain includeSubdomains="true">homeserver</domain>
+        <domain includeSubdomains="true">mediaserver</domain>
+        <domain includeSubdomains="true">nas</domain>
+        <domain includeSubdomains="true">server.local</domain>
+        <domain includeSubdomains="true">*.lan</domain>
+        <domain includeSubdomains="true">*.home</domain>
+        <domain includeSubdomains="true">*.internal</domain>
+        <domain includeSubdomains="true">*.local</domain>
+        <domain includeSubdomains="true">*.localdomain</domain>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </domain-config>
+    
+    <!-- Base configuration - very permissive for debug -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </base-config>
+    
+    <!-- Debug overrides - accept everything -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

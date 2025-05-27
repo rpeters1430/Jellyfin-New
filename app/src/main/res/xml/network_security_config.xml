@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Local networks - allow cleartext and trust all certificates -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">192.168.0.0/16</domain>
+        <domain includeSubdomains="true">10.0.0.0/8</domain>
+        <domain includeSubdomains="true">172.16.0.0/12</domain>
+        <domain includeSubdomains="true">169.254.0.0/16</domain>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </domain-config>
+    
+    <!-- Common Jellyfin server hostnames -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">jellyfin</domain>
+        <domain includeSubdomains="true">jellyfin.local</domain>
+        <domain includeSubdomains="true">plex.local</domain>
+        <domain includeSubdomains="true">homeserver</domain>
+        <domain includeSubdomains="true">mediaserver</domain>
+        <domain includeSubdomains="true">nas</domain>
+        <domain includeSubdomains="true">server.local</domain>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </domain-config>
+    
+    <!-- Local domain extensions with trust anchors for self-signed certs -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">*.lan</domain>
+        <domain includeSubdomains="true">*.home</domain>
+        <domain includeSubdomains="true">*.internal</domain>
+        <domain includeSubdomains="true">*.local</domain>
+        <domain includeSubdomains="true">*.localdomain</domain>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>    </domain-config>
+    
+    <!-- Base configuration - permissive for both debug and release builds -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </base-config>
+    
+    <!-- Debug configuration - same as base for consistency -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

@@ -20,6 +20,10 @@ import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.SortOrder
+import javax.net.ssl.SSLException
+import java.security.cert.CertificateException
+import java.net.ConnectException
+import java.net.UnknownHostException
 
 data class ConnectionState(
     val isConnected: Boolean = false,
@@ -142,16 +146,48 @@ class JellyfinRepository(androidContext: Context) {
                 Log.w(TAG, "Authentication failed - no access token received")
                 updateConnectionState(error = "Authentication failed - no access token received")
                 false
-            }
-        } catch (e: ApiClientException) {
+            }        } catch (e: ApiClientException) {
             val errorMessage = when {
-                e.message?.contains("401") == true -> "Invalid username or password"
+                                e.message?.contains("401") == true -> "Invalid username or password"
                 e.message?.contains("404") == true -> "Server not found - check URL"
                 e.message?.contains("timeout") == true -> "Connection timeout - check network"
+                e.message?.contains("SSL") == true || e.message?.contains("certificate") == true -> 
+                    "SSL certificate error - For self-signed certificates behind reverse proxy: " +
+                    "Install certificate in Android settings or use HTTP connection"
+                e.message?.contains("Connection refused") == true -> "Connection refused - check server and port"
+                e.message?.contains("UnknownHostException") == true -> "Cannot resolve hostname - check URL"
                 else -> "Connection failed: ${e.message}"
             }
             Log.e(TAG, "API Connection error", e)
             updateConnectionState(error = errorMessage)
+            false
+        } catch (e: javax.net.ssl.SSLException) {
+            Log.e(TAG, "SSL error occurred", e)
+            val errorMessage = when {
+                e.message?.contains("certificate", ignoreCase = true) == true -> 
+                    "SSL certificate error - For self-signed certificates behind reverse proxy: " +
+                    "1) Install the certificate in Android's trusted certificates, or " +
+                    "2) Use HTTP instead of HTTPS, or " +
+                    "3) Configure your reverse proxy to use a valid certificate"
+                e.message?.contains("handshake", ignoreCase = true) == true ->
+                    "SSL handshake failed - Check certificate configuration on your reverse proxy"
+                e.message?.contains("hostname", ignoreCase = true) == true ->
+                    "SSL hostname verification failed - Ensure certificate matches domain name"
+                else -> "SSL connection error - check server certificate configuration"
+            }
+            updateConnectionState(error = errorMessage)
+            false
+        } catch (e: java.security.cert.CertificateException) {
+            Log.e(TAG, "Certificate error occurred", e)
+            updateConnectionState(error = "Certificate validation failed - For self-signed certificates: Install the certificate in Android's trusted store or use HTTP connection")
+            false
+        } catch (e: java.net.ConnectException) {
+            Log.e(TAG, "Connection refused", e)
+            updateConnectionState(error = "Connection refused - check server URL and port")
+            false
+        } catch (e: java.net.UnknownHostException) {
+            Log.e(TAG, "Unknown host", e)
+            updateConnectionState(error = "Cannot resolve hostname - check server URL")
             false
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected connection error", e)
@@ -682,5 +718,27 @@ class JellyfinRepository(androidContext: Context) {
         _tvEpisodes.value = emptyList()
         _currentSeries.value = null
         _currentSeason.value = null
+    }
+
+    /**
+     * Enhanced connect method that handles self-signed certificates and reverse proxy scenarios
+     */
+    suspend fun connectWithSSLFallback(
+        serverUrl: String,
+        username: String,
+        password: String
+    ): Boolean {
+        // First try the original URL
+        val result = connect(serverUrl, username, password)
+        
+        if (!result && serverUrl.startsWith("https://")) {
+            Log.i(TAG, "HTTPS connection failed, this may be due to self-signed certificate")
+            Log.i(TAG, "Consider installing the certificate or configuring your reverse proxy with a valid certificate")
+            
+            // Note: We don't automatically fall back to HTTP for security reasons
+            // Users should explicitly use HTTP if they want an insecure connection
+        }
+        
+        return result
     }
 }

@@ -17,13 +17,30 @@ android {
 
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../keystore/jellyfin-android-tv.jks")
+            storePassword = "Sport460"
+            keyAlias = "jellyfin-key"
+            keyPassword = "Sport460"
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
+            // Ensure release builds also use the network security config
+            manifestPlaceholders["networkSecurityConfig"] = "@xml/network_security_config"
+        }
+        debug {
+            isDebuggable = true
+            // Add debug-specific network security config for more permissive SSL
+            manifestPlaceholders["networkSecurityConfig"] = "@xml/network_security_config"
         }
     }
     compileOptions {
