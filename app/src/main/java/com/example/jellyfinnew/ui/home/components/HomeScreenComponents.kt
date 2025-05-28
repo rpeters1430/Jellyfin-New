@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -227,7 +228,7 @@ private fun FeaturedItemContent(
 }
 
 /**
- * TV-optimized media library section
+ * TV-optimized media library section with preloading
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -235,6 +236,7 @@ fun MediaLibrarySection(
     libraries: List<MediaItem>,
     onLibraryClick: (MediaItem) -> Unit,
     onLibraryFocus: (String?) -> Unit,
+    onLibraryIndexFocused: ((Int, List<MediaItem>) -> Unit)? = null,
     modifier: Modifier = Modifier,
     isLoading: Boolean = false
 ) {
@@ -271,16 +273,19 @@ fun MediaLibrarySection(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
-        } else {            LazyRow(
+        } else {            
+            LazyRow(
                 contentPadding = PaddingValues(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(TvOptimizations.TvListDefaults.itemSpacing)
             ) {
-                items(libraries) { library ->
+                itemsIndexed(libraries) { index, library ->
                     LibraryCard(
                         library = library,
                         onClick = { onLibraryClick(library) },
                         onFocus = {
                             onLibraryFocus(library.backdropUrl ?: library.imageUrl)
+                            // Trigger preloading for adjacent libraries
+                            onLibraryIndexFocused?.invoke(index, libraries)
                         }
                     )
                 }
@@ -310,7 +315,7 @@ private fun LibraryCard(
 }
 
 /**
- * Recently added content section with improved layout
+ * Recently added content section with improved layout and preloading
  */
 @Composable
 fun RecentlyAddedSection(
@@ -318,14 +323,14 @@ fun RecentlyAddedSection(
     items: List<MediaItem>,
     onItemClick: (String) -> Unit,
     onItemFocus: (String?) -> Unit,
+    onItemIndexFocused: ((Int, List<MediaItem>) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     if (items.isNotEmpty()) {
         Column(
             modifier = modifier,
             verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
+        ) {            Text(
                 text = title,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -336,12 +341,14 @@ fun RecentlyAddedSection(
                 contentPadding = PaddingValues(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp) // Recently added cards spacing
             ) {
-                items(items) { item ->
+                itemsIndexed(items) { index, item ->
                     MediaCard(
                         mediaItem = item,
                         onClick = { onItemClick(item.id) },
                         onFocus = {
                             onItemFocus(item.backdropUrl ?: item.imageUrl)
+                            // Trigger preloading for adjacent items
+                            onItemIndexFocused?.invoke(index, items)
                         }
                     )
                 }

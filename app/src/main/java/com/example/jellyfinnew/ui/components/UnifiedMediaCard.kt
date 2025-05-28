@@ -108,44 +108,22 @@ private fun OptimizedMediaImage(
     mediaItem: MediaItem,
     cardType: MediaCardType,
     modifier: Modifier = Modifier
-) {
-    val imageUrl = when (cardType) {
+) {    val imageUrl = when (cardType) {
         MediaCardType.BACKDROP, MediaCardType.EPISODE -> 
             mediaItem.backdropUrl ?: mediaItem.imageUrl
         MediaCardType.POSTER, MediaCardType.SQUARE -> 
             mediaItem.imageUrl ?: mediaItem.backdropUrl
     }
     
-    val imageRequest = ImageCacheManager.createOptimizedImageRequest(
-        url = imageUrl,
+    // Use RobustAsyncImage with enhanced error handling
+    RobustAsyncImage(
+        imageUrl = imageUrl,
         contentDescription = mediaItem.name,
-        enableCrossfade = false // Disabled for TV performance
+        modifier = modifier,
+        contentScale = ContentScale.Crop,
+        enableRetry = true,
+        showPlaceholder = true
     )
-    
-    if (imageRequest != null) {
-        AsyncImage(
-            model = imageRequest,
-            contentDescription = mediaItem.name,
-            modifier = modifier,
-            contentScale = ContentScale.Crop
-        )
-    } else {
-        // Fallback placeholder
-        Box(
-            modifier = modifier.background(
-                Color.Gray.copy(alpha = 0.3f),
-                RoundedCornerShape(8.dp)
-            ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = mediaItem.name.take(2).uppercase(),
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = 0.7f)
-            )
-        }
-    }
 }
 
 @Composable

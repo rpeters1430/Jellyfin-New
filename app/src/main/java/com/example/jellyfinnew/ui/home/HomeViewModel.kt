@@ -6,6 +6,12 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.jellyfinnew.data.JellyfinRepository
 import com.example.jellyfinnew.data.MediaItem
+import com.example.jellyfinnew.data.JellyfinConfig
+import com.example.jellyfinnew.ui.utils.ContentRefreshManager
+import com.example.jellyfinnew.ui.utils.ImagePreloader
+import com.example.jellyfinnew.ui.utils.MemoryPressureMonitor
+import com.example.jellyfinnew.ui.utils.ConnectionHealthMonitor
+import com.example.jellyfinnew.ui.utils.PaginationManager
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,16 +25,28 @@ class HomeViewModel(
 
     companion object {
         private const val TAG = "HomeViewModel"
+        private var lastRefreshTime = 0L
     }
-
+    
     private val repository: JellyfinRepository = ServiceLocator.provideRepository(application)
-
+    
+    // Performance optimization managers
+    private val imagePreloader = ImagePreloader(application)
+    private val memoryMonitor = MemoryPressureMonitor(application)
+    private val connectionHealthMonitor = ConnectionHealthMonitor(repository)
+    private val paginationManager = PaginationManager()
+    
     // Repository state flows
     val mediaLibraries: StateFlow<List<MediaItem>> = repository.mediaLibraries
     val currentLibraryItems: StateFlow<List<MediaItem>> = repository.currentLibraryItems
     val featuredItems: StateFlow<List<MediaItem>> = repository.featuredItems
     val recentlyAdded: StateFlow<Map<String, List<MediaItem>>> = repository.recentlyAdded
     val connectionState = repository.connectionState
+
+    // Expose additional state flows for the UI
+    val memoryInfo = memoryMonitor.memoryInfo
+    val connectionHealth = connectionHealthMonitor.connectionHealth
+    val paginationInfo = paginationManager.currentPage
 
     // Internal state
     private val _isRefreshing = MutableStateFlow(false)
@@ -38,6 +56,16 @@ class HomeViewModel(
 
     init {
         Log.d(TAG, "HomeViewModel initialized")
+
+        // Start performance monitoring
+        memoryMonitor.startMonitoring()
+        connectionHealthMonitor.startMonitoring()
+        
+        // Register memory cleanup callbacks
+        memoryMonitor.registerCleanupCallback {
+            Log.d(TAG, "Memory cleanup triggered - clearing image cache")
+            imagePreloader.cleanup()
+        }
 
         // Monitor connection state and load content when connected
         viewModelScope.launch {
@@ -91,9 +119,36 @@ class HomeViewModel(
             try {
                 Log.d(TAG, "Loading library items for: $libraryId")
                 repository.loadLibraryItems(libraryId)
+                
+                // Setup pagination for large libraries
+                val items = repository.currentLibraryItems.value
+                if (items.size > JellyfinConfig.Performance.PAGE_SIZE) {
+                    Log.d(TAG, "Large library detected (${items.size} items), enabling pagination")
+                    paginationManager.initializePagination(items)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading library items for $libraryId", e)
             }
+        }
+    }
+
+    /**
+     * Load next page of library items
+     */
+    fun loadNextPage() {
+        if (paginationManager.hasNextPage.value) {
+            Log.d(TAG, "Loading next page")
+            paginationManager.loadNextPage()
+        }
+    }
+
+    /**
+     * Load previous page of library items
+     */
+    fun loadPreviousPage() {
+        if (paginationManager.hasPreviousPage.value) {
+            Log.d(TAG, "Loading previous page")
+            paginationManager.loadPreviousPage()
         }
     }
 
@@ -145,9 +200,7 @@ class HomeViewModel(
         if (connectionState.value.isConnected) {
             refreshHomeContent()
         }
-    }
-
-    /**
+    }    /**
      * Clear current library items (useful when navigating back from library view)
      */
     fun clearCurrentLibraryItems() {
@@ -156,9 +209,36 @@ class HomeViewModel(
         Log.d(TAG, "Request to clear current library items")
     }
 
-    override fun onCleared() {
+    /**
+     * Handle item focus for preloading adjacent images
+     */
+    fun onItemFocused(focusedIndex: Int, items: List<MediaItem>) {
+        Log.v(TAG, "Item focused at index $focusedIndex")
+        imagePreloader.preloadAdjacentItems(focusedIndex, items)
+    }    /**
+     * Refresh content with intelligent caching
+     */
+    fun refreshContentIfNeeded() {
+        viewModelScope.launch {
+            // Simple time-based refresh logic since ContentRefreshManager needs MediaRepository
+            val currentTime = System.currentTimeMillis()
+            val refreshInterval = 5 * 60 * 1000L // 5 minutes
+            
+            // Use a simple static variable to track last refresh
+            if (currentTime - lastRefreshTime > refreshInterval) {
+                Log.d(TAG, "Refreshing content - enough time has passed")
+                lastRefreshTime = currentTime
+                loadHomeContent()
+            } else {
+                Log.d(TAG, "Skipping content refresh - too recent")
+            }
+        }
+    }    override fun onCleared() {
         super.onCleared()
         Log.d(TAG, "HomeViewModel cleared")
         refreshJob?.cancel()
+        imagePreloader.cleanup()
+        memoryMonitor.stopMonitoring()
+        connectionHealthMonitor.cleanup()
     }
 }

@@ -70,9 +70,7 @@ fun HomeScreen(
                         viewModel.refreshHomeContent()
                     }
                 )
-            }
-
-            selectedLibraryId == null -> {
+            }            selectedLibraryId == null -> {
                 // Main home view with featured content and library rows
                 MainHomeContent(
                     mediaLibraries = mediaLibraries,
@@ -94,7 +92,8 @@ fun HomeScreen(
                     onDisconnect = {
                         viewModel.disconnect()
                         onDisconnect()
-                    }
+                    },
+                    viewModel = viewModel
                 )
             }
 
@@ -130,8 +129,9 @@ private fun MainHomeContent(
     onLibraryClick: (MediaItem) -> Unit,
     onFocusChange: (String?) -> Unit,
     onDisconnect: () -> Unit,
+    viewModel: HomeViewModel,
     modifier: Modifier = Modifier
-) {    LazyColumn(
+) {LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(TvOptimizations.TvListDefaults.contentPadding),
         verticalArrangement = Arrangement.spacedBy(TvOptimizations.TvListDefaults.sectionSpacing)
@@ -154,15 +154,16 @@ private fun MainHomeContent(
                     )
                 }
             }
-        }
-
-        // Media Libraries Section
+        }        // Media Libraries Section
         if (mediaLibraries.isNotEmpty()) {
             item {
                 MediaLibrarySection(
                     libraries = mediaLibraries,
                     onLibraryClick = onLibraryClick,
-                    onLibraryFocus = onFocusChange
+                    onLibraryFocus = onFocusChange,
+                    onLibraryIndexFocused = { index, items ->
+                        viewModel.onItemFocused(index, items)
+                    }
                 )
             }
         }
@@ -175,7 +176,10 @@ private fun MainHomeContent(
                         title = libraryName,
                         items = items,
                         onItemClick = onPlayMedia,
-                        onItemFocus = onFocusChange
+                        onItemFocus = onFocusChange,
+                        onItemIndexFocused = { index, listItems ->
+                            viewModel.onItemFocused(index, listItems)
+                        }
                     )
                 }
             }

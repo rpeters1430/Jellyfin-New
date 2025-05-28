@@ -48,6 +48,11 @@ object JellyfinConfig {
     }
       // Performance Configuration
     object Performance {
+        const val PRELOAD_DISTANCE = 3
+        const val MAX_RETRIES = 2
+        const val PAGE_SIZE = 50
+        const val REFRESH_INTERVAL_MS = 5 * 60 * 1000L
+        const val HEALTH_CHECK_INTERVAL_MS = 30_000L
         const val IMAGE_CACHE_SIZE_MB = 200
         const val MEMORY_CACHE_PERCENT = 0.30
         const val MEMORY_CLEANUP_INTERVAL_MS = 30_000L
