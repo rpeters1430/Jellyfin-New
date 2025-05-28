@@ -7,6 +7,8 @@ import com.example.jellyfinnew.data.repositories.ConnectionRepository
 import com.example.jellyfinnew.data.repositories.MediaRepository
 import com.example.jellyfinnew.data.repositories.TvShowsRepository
 import com.example.jellyfinnew.data.repositories.StreamingRepository
+import com.example.jellyfinnew.data.repositories.MoviesRepository
+import com.example.jellyfinnew.data.repositories.MusicRepository
 
 object ServiceLocator {
     @Volatile
@@ -23,18 +25,24 @@ object ServiceLocator {
     
     @Volatile
     private var tvShowsRepository: TvShowsRepository? = null
-    
-    @Volatile
+      @Volatile
     private var streamingRepository: StreamingRepository? = null
     
+    @Volatile
+    private var moviesRepository: MoviesRepository? = null
+    
+    @Volatile
+    private var musicRepository: MusicRepository? = null
+    
     fun provideRepository(context: Context): JellyfinRepository {
-        return repository ?: synchronized(this) {
-            repository ?: JellyfinRepository(
+        return repository ?: synchronized(this) {            repository ?: JellyfinRepository(
                 context.applicationContext,
                 provideConnectionRepository(context),
                 provideMediaRepository(),
                 provideTvShowsRepository(),
-                provideStreamingRepository()
+                provideStreamingRepository(),
+                provideMoviesRepository(),
+                provideMusicRepository()
             ).also { repository = it }
         }
     }
@@ -56,10 +64,21 @@ object ServiceLocator {
             tvShowsRepository ?: TvShowsRepository().also { tvShowsRepository = it }
         }
     }
-    
-    fun provideStreamingRepository(): StreamingRepository {
+      fun provideStreamingRepository(): StreamingRepository {
         return streamingRepository ?: synchronized(this) {
             streamingRepository ?: StreamingRepository().also { streamingRepository = it }
+        }
+    }
+    
+    fun provideMoviesRepository(): MoviesRepository {
+        return moviesRepository ?: synchronized(this) {
+            moviesRepository ?: MoviesRepository().also { moviesRepository = it }
+        }
+    }
+    
+    fun provideMusicRepository(): MusicRepository {
+        return musicRepository ?: synchronized(this) {
+            musicRepository ?: MusicRepository().also { musicRepository = it }
         }
     }
     

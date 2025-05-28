@@ -40,9 +40,11 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onPlayMedia: (String) -> Unit,
     onNavigateToTvShows: (String) -> Unit,
-    onDisconnect: () -> Unit,
+    onNavigateToMovies: (String) -> Unit,
+    onNavigateToMusic: (String) -> Unit,    onDisconnect: () -> Unit,
     modifier: Modifier = Modifier
-) {    val mediaLibraries by viewModel.mediaLibraries.collectAsStateWithLifecycle()
+) {
+    val mediaLibraries by viewModel.mediaLibraries.collectAsStateWithLifecycle()
     val currentLibraryItems by viewModel.currentLibraryItems.collectAsStateWithLifecycle()
     val featuredItems by viewModel.featuredItems.collectAsStateWithLifecycle()
     val recentlyAdded by viewModel.recentlyAdded.collectAsStateWithLifecycle()
@@ -78,12 +80,17 @@ fun HomeScreen(
                     recentlyAdded = recentlyAdded,
                     onPlayMedia = onPlayMedia,
                     onNavigateToTvShows = onNavigateToTvShows,
+                    onNavigateToMovies = onNavigateToMovies,
+                    onNavigateToMusic = onNavigateToMusic,
                     onLibraryClick = { library ->
-                        if (library.collectionType == "tvshows") {
-                            onNavigateToTvShows(library.id)
-                        } else {
-                            selectedLibraryId = library.id
-                            viewModel.loadLibraryItems(library.id)
+                        when (library.collectionType) {
+                            "tvshows" -> onNavigateToTvShows(library.id)
+                            "movies" -> onNavigateToMovies(library.id)
+                            "music" -> onNavigateToMusic(library.id)
+                            else -> {
+                                selectedLibraryId = library.id
+                                viewModel.loadLibraryItems(library.id)
+                            }
                         }
                     },
                     onFocusChange = { imageUrl ->
@@ -126,6 +133,8 @@ private fun MainHomeContent(
     recentlyAdded: Map<String, List<MediaItem>>,
     onPlayMedia: (String) -> Unit,
     onNavigateToTvShows: (String) -> Unit,
+    onNavigateToMovies: (String) -> Unit,
+    onNavigateToMusic: (String) -> Unit,
     onLibraryClick: (MediaItem) -> Unit,
     onFocusChange: (String?) -> Unit,
     onDisconnect: () -> Unit,

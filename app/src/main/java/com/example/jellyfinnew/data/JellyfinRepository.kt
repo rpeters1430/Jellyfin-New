@@ -7,6 +7,8 @@ import com.example.jellyfinnew.data.repositories.ConnectionRepository
 import com.example.jellyfinnew.data.repositories.MediaRepository
 import com.example.jellyfinnew.data.repositories.TvShowsRepository
 import com.example.jellyfinnew.data.repositories.StreamingRepository
+import com.example.jellyfinnew.data.repositories.MoviesRepository
+import com.example.jellyfinnew.data.repositories.MusicRepository
 
 data class ConnectionState(
     val isConnected: Boolean = false,
@@ -26,6 +28,7 @@ data class MediaItem(
     val productionYear: Int? = null,
     val communityRating: Double? = null,
     val collectionType: String? = null,
+    val genres: List<String>? = null,
     // Episode-specific fields
     val episodeName: String? = null,
     val seriesName: String? = null,
@@ -44,11 +47,13 @@ data class UserData(
  * This acts as a facade to maintain backward compatibility while using the new modular architecture
  */
 class JellyfinRepository(
-    androidContext: Context,
-    private val connectionRepository: ConnectionRepository,
+    private val androidContext: Context,
+    val connectionRepository: ConnectionRepository,
     private val mediaRepository: MediaRepository,
     private val tvShowsRepository: TvShowsRepository,
-    private val streamingRepository: StreamingRepository
+    private val streamingRepository: StreamingRepository,
+    private val moviesRepository: MoviesRepository,
+    private val musicRepository: MusicRepository
 ) {
 
     companion object {
@@ -63,14 +68,21 @@ class JellyfinRepository(
     val currentLibraryItems: StateFlow<List<MediaItem>> = mediaRepository.currentLibraryItems
     val featuredItems: StateFlow<List<MediaItem>> = mediaRepository.featuredItems
     val featuredItem: StateFlow<MediaItem?> = mediaRepository.featuredItem
-    val recentlyAdded: StateFlow<Map<String, List<MediaItem>>> = mediaRepository.recentlyAdded
-
-    // Delegate TV shows state to TvShowsRepository
+    val recentlyAdded: StateFlow<Map<String, List<MediaItem>>> = mediaRepository.recentlyAdded    // Delegate TV shows state to TvShowsRepository
     val tvShows: StateFlow<List<MediaItem>> = tvShowsRepository.tvShows
     val tvSeasons: StateFlow<List<MediaItem>> = tvShowsRepository.tvSeasons
     val tvEpisodes: StateFlow<List<MediaItem>> = tvShowsRepository.tvEpisodes
     val currentSeries: StateFlow<MediaItem?> = tvShowsRepository.currentSeries
-    val currentSeason: StateFlow<MediaItem?> = tvShowsRepository.currentSeason
+    val currentSeason: StateFlow<MediaItem?> = tvShowsRepository.currentSeason    // Delegate Movies state to MoviesRepository
+    val movies: StateFlow<List<MediaItem>> = moviesRepository.movies
+    val movieGenres: StateFlow<List<String>> = moviesRepository.movieGenres
+    val currentMovieDetails: StateFlow<MediaItem?> = moviesRepository.currentMovieDetails    // Delegate Music state to MusicRepository
+    val artists: StateFlow<List<MediaItem>> = musicRepository.artists
+    val albums: StateFlow<List<MediaItem>> = musicRepository.albums
+    val songs: StateFlow<List<MediaItem>> = musicRepository.songs
+    val musicGenres: StateFlow<List<String>> = musicRepository.musicGenres
+    val currentArtist: StateFlow<MediaItem?> = musicRepository.currentArtist
+    val currentAlbum: StateFlow<MediaItem?> = musicRepository.currentAlbum
 
     /**
      * Connect to Jellyfin server with authentication
@@ -289,14 +301,57 @@ class JellyfinRepository(
             val error = ErrorHandler.handleException(e, "Failed to load initial data")
             Log.e(TAG, error.getUserFriendlyMessage(), e)
         }
-    }
-
-    /**
+    }    /**
      * Clear all data from repositories
      */
     private fun clearAllData() {
         Log.d(TAG, "Clearing all repository data")
         mediaRepository.clearAllData()
         tvShowsRepository.clearAllData()
+        moviesRepository.clearAllData()
+        musicRepository.clearAllData()
+    }    // Delegated methods for MoviesRepository
+    suspend fun loadMovies(libraryId: String) {
+        val client = connectionRepository.apiClient
+        val helper = connectionRepository.imageUrlHelper
+        if (client != null && helper != null) {
+            moviesRepository.loadMovies(libraryId, client, helper)
+        }
     }
+      suspend fun loadMovieDetails(movieId: String) {
+        val client = connectionRepository.apiClient
+        val helper = connectionRepository.imageUrlHelper
+        if (client != null && helper != null) {
+            moviesRepository.loadMovieDetails(movieId, client, helper)
+        }
+    }
+    
+    fun clearMoviesData() = moviesRepository.clearAllData()
+
+    // Delegated methods for MusicRepository
+    suspend fun loadArtists(libraryId: String) {
+        val client = connectionRepository.apiClient
+        val helper = connectionRepository.imageUrlHelper
+        if (client != null && helper != null) {
+            musicRepository.loadArtists(libraryId, client, helper)
+        }
+    }
+    
+    suspend fun loadAlbums(artistId: String) {
+        val client = connectionRepository.apiClient
+        val helper = connectionRepository.imageUrlHelper
+        if (client != null && helper != null) {
+            musicRepository.loadAlbums(artistId, client, helper)
+        }
+    }
+    
+    suspend fun loadSongs(albumId: String) {
+        val client = connectionRepository.apiClient
+        val helper = connectionRepository.imageUrlHelper
+        if (client != null && helper != null) {
+            musicRepository.loadSongs(albumId, client, helper)
+        }
+    }
+    
+    fun clearMusicData() = musicRepository.clearAllData()
 }
