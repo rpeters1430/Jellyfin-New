@@ -41,7 +41,8 @@ fun HomeScreen(
     onPlayMedia: (String) -> Unit,
     onNavigateToTvShows: (String) -> Unit,
     onNavigateToMovies: (String) -> Unit,
-    onNavigateToMusic: (String) -> Unit,    onDisconnect: () -> Unit,
+    onNavigateToMusic: (String) -> Unit,
+    onDisconnect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val mediaLibraries by viewModel.mediaLibraries.collectAsStateWithLifecycle()
@@ -72,7 +73,9 @@ fun HomeScreen(
                         viewModel.refreshHomeContent()
                     }
                 )
-            }            selectedLibraryId == null -> {
+            }
+
+            selectedLibraryId == null -> {
                 // Main home view with featured content and library rows
                 MainHomeContent(
                     mediaLibraries = mediaLibraries,
@@ -83,10 +86,12 @@ fun HomeScreen(
                     onNavigateToMovies = onNavigateToMovies,
                     onNavigateToMusic = onNavigateToMusic,
                     onLibraryClick = { library ->
+                        // Enhanced library navigation logic based on collection type
                         when (library.collectionType) {
                             "tvshows" -> onNavigateToTvShows(library.id)
                             "movies" -> onNavigateToMovies(library.id)
                             "music" -> onNavigateToMusic(library.id)
+                            // For other library types (books, photos, etc.), show local browser
                             else -> {
                                 selectedLibraryId = library.id
                                 viewModel.loadLibraryItems(library.id)
@@ -113,12 +118,19 @@ fun HomeScreen(
                     onBackClick = { selectedLibraryId = null },
                     onItemClick = { item ->
                         when (item.type) {
-                            BaseItemKind.MOVIE, BaseItemKind.EPISODE -> onPlayMedia(item.id)
-                            else -> {
+                            BaseItemKind.MOVIE, BaseItemKind.EPISODE, BaseItemKind.AUDIO -> onPlayMedia(item.id)
+                            BaseItemKind.FOLDER, BaseItemKind.COLLECTION_FOLDER -> {
                                 selectedLibraryId = item.id
                                 viewModel.loadLibraryItems(item.id)
                             }
+                            else -> {
+                                // Try to play unknown types, might be playable
+                                onPlayMedia(item.id)
+                            }
                         }
+                    },
+                    onFocusChange = { imageUrl ->
+                        focusedItemImageUrl = imageUrl
                     }
                 )
             }
@@ -140,7 +152,8 @@ private fun MainHomeContent(
     onDisconnect: () -> Unit,
     viewModel: HomeViewModel,
     modifier: Modifier = Modifier
-) {LazyColumn(
+) {
+    LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(TvOptimizations.TvListDefaults.contentPadding),
         verticalArrangement = Arrangement.spacedBy(TvOptimizations.TvListDefaults.sectionSpacing)
@@ -151,7 +164,8 @@ private fun MainHomeContent(
         }
 
         // Featured Carousel - closer to header
-        if (featuredItems.isNotEmpty()) {            item {
+        if (featuredItems.isNotEmpty()) {
+            item {
                 Column(
                     modifier = Modifier.padding(top = TvOptimizations.TvSpacing.small),
                     verticalArrangement = Arrangement.spacedBy(TvOptimizations.TvSpacing.medium)
@@ -163,7 +177,9 @@ private fun MainHomeContent(
                     )
                 }
             }
-        }        // Media Libraries Section
+        }
+
+        // Media Libraries Section
         if (mediaLibraries.isNotEmpty()) {
             item {
                 MediaLibrarySection(
@@ -204,6 +220,7 @@ private fun LibraryContentView(
     currentLibraryItems: List<MediaItem>,
     onBackClick: () -> Unit,
     onItemClick: (MediaItem) -> Unit,
+    onFocusChange: (String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -242,7 +259,10 @@ private fun LibraryContentView(
                 items(currentLibraryItems) { item ->
                     LibraryItemCard(
                         mediaItem = item,
-                        onClick = { onItemClick(item) }
+                        onClick = { onItemClick(item) },
+                        onFocus = {
+                            onFocusChange(item.backdropUrl ?: item.imageUrl)
+                        }
                     )
                 }
             }
@@ -255,6 +275,7 @@ private fun LibraryContentView(
 private fun LibraryItemCard(
     mediaItem: MediaItem,
     onClick: () -> Unit,
+    onFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Use the new UnifiedMediaCard with optimized caching
@@ -262,8 +283,10 @@ private fun LibraryItemCard(
         mediaItem = mediaItem,
         onClick = onClick,
         modifier = modifier,
+        onFocus = onFocus,
         cardType = when (mediaItem.type) {
             BaseItemKind.EPISODE -> MediaCardType.EPISODE
+            BaseItemKind.FOLDER, BaseItemKind.COLLECTION_FOLDER -> MediaCardType.BACKDROP
             else -> MediaCardType.POSTER
         },
         showProgress = true,

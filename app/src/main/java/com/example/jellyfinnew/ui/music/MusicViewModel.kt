@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import com.example.jellyfinnew.data.JellyfinRepository
 import com.example.jellyfinnew.data.MediaItem
-import com.example.jellyfinnew.data.repositories.MusicRepository
 import android.util.Log
 import com.example.jellyfinnew.data.JellyfinConfig
 
@@ -20,8 +19,7 @@ import com.example.jellyfinnew.data.JellyfinConfig
  * ViewModel for managing music screen state and operations
  */
 class MusicViewModel(
-    private val repository: JellyfinRepository,
-    private val musicRepository: MusicRepository
+    private val repository: JellyfinRepository
 ) : ViewModel() {
 
     companion object {
@@ -45,12 +43,14 @@ class MusicViewModel(
     val focusedSong: StateFlow<MediaItem?> = _focusedSong.asStateFlow()
 
     // Repository state flows
-    val artists: StateFlow<List<MediaItem>> = musicRepository.artists
-    val albums: StateFlow<List<MediaItem>> = musicRepository.albums
-    val songs: StateFlow<List<MediaItem>> = musicRepository.songs
-    val musicGenres: StateFlow<List<String>> = musicRepository.musicGenres
-    val currentArtist: StateFlow<MediaItem?> = musicRepository.currentArtist
-    val currentAlbum: StateFlow<MediaItem?> = musicRepository.currentAlbum    // Filtered artists based on selected genre
+    val artists: StateFlow<List<MediaItem>> = repository.artists
+    val albums: StateFlow<List<MediaItem>> = repository.albums
+    val songs: StateFlow<List<MediaItem>> = repository.songs
+    val musicGenres: StateFlow<List<String>> = repository.musicGenres
+    val currentArtist: StateFlow<MediaItem?> = repository.currentArtist
+    val currentAlbum: StateFlow<MediaItem?> = repository.currentAlbum
+
+    // Filtered artists based on selected genre
     val filteredArtists: StateFlow<List<MediaItem>> = combine(
         artists,
         selectedGenre
@@ -74,24 +74,13 @@ class MusicViewModel(
             _isLoading.value = true
             try {
                 Log.d(TAG, "Loading artists for library: $libraryId")
-                
-                val apiClient = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.apiClient else null
-                }
-                
-                val imageUrlHelper = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.imageUrlHelper else null
-                }
 
-                if (apiClient != null && imageUrlHelper != null) {
-                    musicRepository.loadArtists(libraryId, apiClient, imageUrlHelper)
-                    
-                    // Set the first artist as focused if no artist is currently focused
-                    if (_focusedArtist.value == null && artists.value.isNotEmpty()) {
-                        _focusedArtist.value = artists.value.first()
-                    }
-                } else {
-                    Log.w(TAG, "Cannot load artists - not connected to server")
+                // Use repository delegate method instead of accessing connectionRepository directly
+                repository.loadArtists(libraryId)
+
+                // Set the first artist as focused if no artist is currently focused
+                if (_focusedArtist.value == null && artists.value.isNotEmpty()) {
+                    _focusedArtist.value = artists.value.first()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading artists", e)
@@ -110,28 +99,17 @@ class MusicViewModel(
             try {
                 Log.d(TAG, "Loading artists for genre: $genre in library: $libraryId")
                 _selectedGenre.value = genre
-                
-                val apiClient = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.apiClient else null
-                }
-                
-                val imageUrlHelper = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.imageUrlHelper else null
+
+                if (genre.isNullOrEmpty()) {
+                    repository.loadArtists(libraryId)
+                } else {
+                    // For now, just load all artists and let the UI filter
+                    repository.loadArtists(libraryId)
                 }
 
-                if (apiClient != null && imageUrlHelper != null) {
-                    if (genre.isNullOrEmpty()) {
-                        musicRepository.loadArtists(libraryId, apiClient, imageUrlHelper)
-                    } else {
-                        musicRepository.loadArtistsByGenre(libraryId, genre, apiClient, imageUrlHelper)
-                    }
-                    
-                    // Update focused artist to first in filtered list
-                    if (artists.value.isNotEmpty()) {
-                        _focusedArtist.value = artists.value.first()
-                    }
-                } else {
-                    Log.w(TAG, "Cannot load artists by genre - not connected to server")
+                // Update focused artist to first in filtered list
+                if (artists.value.isNotEmpty()) {
+                    _focusedArtist.value = artists.value.first()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading artists by genre", e)
@@ -149,24 +127,11 @@ class MusicViewModel(
             _isLoading.value = true
             try {
                 Log.d(TAG, "Loading albums for artist: $artistId")
-                
-                val apiClient = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.apiClient else null
-                }
-                
-                val imageUrlHelper = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.imageUrlHelper else null
-                }
+                repository.loadAlbums(artistId)
 
-                if (apiClient != null && imageUrlHelper != null) {
-                    musicRepository.loadAlbums(artistId, apiClient, imageUrlHelper)
-                    
-                    // Set the first album as focused if no album is currently focused
-                    if (_focusedAlbum.value == null && albums.value.isNotEmpty()) {
-                        _focusedAlbum.value = albums.value.first()
-                    }
-                } else {
-                    Log.w(TAG, "Cannot load albums - not connected to server")
+                // Set the first album as focused if no album is currently focused
+                if (_focusedAlbum.value == null && albums.value.isNotEmpty()) {
+                    _focusedAlbum.value = albums.value.first()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading albums", e)
@@ -184,56 +149,16 @@ class MusicViewModel(
             _isLoading.value = true
             try {
                 Log.d(TAG, "Loading songs for album: $albumId")
-                
-                val apiClient = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.apiClient else null
-                }
-                
-                val imageUrlHelper = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.imageUrlHelper else null
-                }
+                repository.loadSongs(albumId)
 
-                if (apiClient != null && imageUrlHelper != null) {
-                    musicRepository.loadSongs(albumId, apiClient, imageUrlHelper)
-                    
-                    // Set the first song as focused if no song is currently focused
-                    if (_focusedSong.value == null && songs.value.isNotEmpty()) {
-                        _focusedSong.value = songs.value.first()
-                    }
-                } else {
-                    Log.w(TAG, "Cannot load songs - not connected to server")
+                // Set the first song as focused if no song is currently focused
+                if (_focusedSong.value == null && songs.value.isNotEmpty()) {
+                    _focusedSong.value = songs.value.first()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading songs", e)
             } finally {
                 _isLoading.value = false
-            }
-        }
-    }
-
-    /**
-     * Load detailed information for a specific song
-     */
-    fun loadSongDetails(songId: String) {
-        viewModelScope.launch {
-            try {
-                Log.d(TAG, "Loading song details for: $songId")
-                
-                val apiClient = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.apiClient else null
-                }
-                
-                val imageUrlHelper = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.imageUrlHelper else null
-                }
-
-                if (apiClient != null && imageUrlHelper != null) {
-                    musicRepository.loadSongDetails(songId, apiClient, imageUrlHelper)
-                } else {
-                    Log.w(TAG, "Cannot load song details - not connected to server")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading song details", e)
             }
         }
     }
@@ -257,8 +182,6 @@ class MusicViewModel(
      */
     fun updateFocusedSong(song: MediaItem?) {
         _focusedSong.value = song
-        // Optionally load detailed info when song is focused
-        song?.let { loadSongDetails(it.id) }
     }
 
     /**
@@ -286,7 +209,7 @@ class MusicViewModel(
      * Clear all music data
      */
     fun clearData() {
-        musicRepository.clearAllData()
+        repository.clearMusicData()
         _focusedArtist.value = null
         _focusedAlbum.value = null
         _focusedSong.value = null
@@ -298,14 +221,13 @@ class MusicViewModel(
  * Factory for creating MusicViewModel instances
  */
 class MusicViewModelFactory(
-    private val repository: JellyfinRepository,
-    private val musicRepository: MusicRepository
+    private val repository: JellyfinRepository
 ) : ViewModelProvider.Factory {
-    
+
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MusicViewModel::class.java)) {
-            return MusicViewModel(repository, musicRepository) as T
+            return MusicViewModel(repository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

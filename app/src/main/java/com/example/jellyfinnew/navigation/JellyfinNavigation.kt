@@ -3,6 +3,7 @@ package com.example.jellyfinnew.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -28,12 +29,15 @@ import com.example.jellyfinnew.ui.music.SongsScreen
 import com.example.jellyfinnew.ui.music.MusicViewModel
 import com.example.jellyfinnew.ui.general.GeneralMediaScreen
 import com.example.jellyfinnew.ui.general.GeneralMediaViewModel
+import com.example.jellyfinnew.di.ServiceLocator
 
 @Composable
 fun JellyfinNavigation(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     NavHost(
         navController = navController,
         startDestination = Screen.Login.route,
@@ -50,7 +54,8 @@ fun JellyfinNavigation(
                 }
             )
         }
-          composable(Screen.Home.route) {
+
+        composable(Screen.Home.route) {
             val viewModel: HomeViewModel = viewModel()
             val loginViewModel: LoginViewModel = viewModel()
             HomeScreen(
@@ -75,7 +80,7 @@ fun JellyfinNavigation(
                 }
             )
         }
-        
+
         composable(
             route = Screen.TvShows.route,
             arguments = listOf(navArgument("libraryId") { type = NavType.StringType })
@@ -93,7 +98,7 @@ fun JellyfinNavigation(
                 }
             )
         }
-        
+
         composable(
             route = Screen.TvSeasons.route,
             arguments = listOf(navArgument("seriesId") { type = NavType.StringType })
@@ -111,7 +116,7 @@ fun JellyfinNavigation(
                 }
             )
         }
-        
+
         composable(
             route = Screen.TvEpisodes.route,
             arguments = listOf(
@@ -127,18 +132,22 @@ fun JellyfinNavigation(
                 viewModel = viewModel,
                 onEpisodeClick = { episodeId ->
                     navController.navigate(Screen.Player.createRoute(episodeId))
-                },                onBack = {
+                },
+                onBack = {
                     navController.popBackStack()
                 }
             )
         }
-        
-        // Movies screen
+
+        // Movies screen with proper ViewModel factory
         composable(
             route = Screen.Movies.route,
             arguments = listOf(navArgument("libraryId") { type = NavType.StringType })
-        ) { backStackEntry ->            val libraryId = backStackEntry.arguments?.getString("libraryId") ?: return@composable
-            val viewModel: MoviesViewModel = viewModel()
+        ) { backStackEntry ->
+            val libraryId = backStackEntry.arguments?.getString("libraryId") ?: return@composable
+            val viewModelFactory = remember { ServiceLocator.provideMoviesViewModelFactory(context) }
+            val viewModel: MoviesViewModel = viewModel(factory = viewModelFactory)
+
             MoviesScreen(
                 viewModel = viewModel,
                 libraryId = libraryId,
@@ -150,14 +159,16 @@ fun JellyfinNavigation(
                 }
             )
         }
-        
-        // Music screen (shows artists for music library)
+
+        // Music screen with proper ViewModel factory
         composable(
             route = Screen.Music.route,
             arguments = listOf(navArgument("libraryId") { type = NavType.StringType })
         ) { backStackEntry ->
             val libraryId = backStackEntry.arguments?.getString("libraryId") ?: return@composable
-            val viewModel: MusicViewModel = viewModel()
+            val viewModelFactory = remember { ServiceLocator.provideMusicViewModelFactory(context) }
+            val viewModel: MusicViewModel = viewModel(factory = viewModelFactory)
+
             ArtistsScreen(
                 viewModel = viewModel,
                 libraryId = libraryId,
@@ -169,14 +180,16 @@ fun JellyfinNavigation(
                 }
             )
         }
-        
+
         // Albums screen
         composable(
             route = Screen.Albums.route,
             arguments = listOf(navArgument("artistId") { type = NavType.StringType })
         ) { backStackEntry ->
             val artistId = backStackEntry.arguments?.getString("artistId") ?: return@composable
-            val viewModel: MusicViewModel = viewModel()
+            val viewModelFactory = remember { ServiceLocator.provideMusicViewModelFactory(context) }
+            val viewModel: MusicViewModel = viewModel(factory = viewModelFactory)
+
             AlbumsScreen(
                 viewModel = viewModel,
                 artistId = artistId,
@@ -188,14 +201,16 @@ fun JellyfinNavigation(
                 }
             )
         }
-        
+
         // Songs screen
         composable(
             route = Screen.Songs.route,
             arguments = listOf(navArgument("albumId") { type = NavType.StringType })
         ) { backStackEntry ->
             val albumId = backStackEntry.arguments?.getString("albumId") ?: return@composable
-            val viewModel: MusicViewModel = viewModel()
+            val viewModelFactory = remember { ServiceLocator.provideMusicViewModelFactory(context) }
+            val viewModel: MusicViewModel = viewModel(factory = viewModelFactory)
+
             SongsScreen(
                 viewModel = viewModel,
                 albumId = albumId,
@@ -207,7 +222,7 @@ fun JellyfinNavigation(
                 }
             )
         }
-        
+
         // General Media screen
         composable(
             route = Screen.GeneralMedia.route,
@@ -226,20 +241,20 @@ fun JellyfinNavigation(
                 }
             )
         }
-        
+
         composable(
             route = Screen.Player.route,
             arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
             // Fix memory leak: use remember with backStackEntry as key
-            val homeEntry = remember(backStackEntry) { 
-                navController.getBackStackEntry(Screen.Home.route) 
+            val homeEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(Screen.Home.route)
             }
             val homeViewModel: HomeViewModel = viewModel(
                 viewModelStoreOwner = homeEntry
             )
-            
+
             val streamUrl = homeViewModel.getStreamUrl(itemId)
             if (streamUrl != null) {
                 PlayerScreen(

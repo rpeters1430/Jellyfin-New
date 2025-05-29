@@ -108,7 +108,8 @@ private fun FeaturedItemContent(
     isFocused: Boolean,
     currentIndex: Int,
     totalItems: Int
-) {    Box(modifier = Modifier.fillMaxSize()) {
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
         // Optimized background image
         TvOptimizations.OptimizedAsyncImage(
             imageUrl = item.backdropUrl ?: item.imageUrl,
@@ -152,7 +153,8 @@ private fun FeaturedItemContent(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(vertical = 8.dp)
-            ) {                item.communityRating?.let { rating ->
+            ) {
+                item.communityRating?.let { rating ->
                     Text(
                         text = "★ ${String.format(Locale.getDefault(), "%.1f", rating)}",
                         fontSize = 16.sp,
@@ -273,7 +275,7 @@ fun MediaLibrarySection(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
-        } else {            
+        } else {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(TvOptimizations.TvListDefaults.itemSpacing)
@@ -283,7 +285,9 @@ fun MediaLibrarySection(
                         library = library,
                         onClick = { onLibraryClick(library) },
                         onFocus = {
-                            onLibraryFocus(library.backdropUrl ?: library.imageUrl)
+                            // Try backdrop first, fallback to image, then use backdrop again
+                            val focusImageUrl = library.backdropUrl ?: library.imageUrl ?: library.backdropUrl
+                            onLibraryFocus(focusImageUrl)
                             // Trigger preloading for adjacent libraries
                             onLibraryIndexFocused?.invoke(index, libraries)
                         }
@@ -316,6 +320,7 @@ private fun LibraryCard(
 
 /**
  * Recently added content section with improved layout and preloading
+ * Fixed to use proper card types for episodes (banner cards)
  */
 @Composable
 fun RecentlyAddedSection(
@@ -330,7 +335,8 @@ fun RecentlyAddedSection(
         Column(
             modifier = modifier,
             verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {            Text(
+        ) {
+            Text(
                 text = title,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -346,7 +352,14 @@ fun RecentlyAddedSection(
                         mediaItem = item,
                         onClick = { onItemClick(item.id) },
                         onFocus = {
-                            onItemFocus(item.backdropUrl ?: item.imageUrl)
+                            // For episodes, prefer backdrop/series poster, otherwise use item images
+                            val focusImageUrl = when (item.type) {
+                                BaseItemKind.EPISODE -> {
+                                    item.backdropUrl ?: item.seriesPosterUrl ?: item.imageUrl
+                                }
+                                else -> item.backdropUrl ?: item.imageUrl
+                            }
+                            onItemFocus(focusImageUrl)
                             // Trigger preloading for adjacent items
                             onItemIndexFocused?.invoke(index, items)
                         }
@@ -365,16 +378,25 @@ private fun MediaCard(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Determine the appropriate card type and size based on media type
+    val (cardType, cardModifier) = when (mediaItem.type) {
+        BaseItemKind.EPISODE -> {
+            // Episodes should use banner/backdrop cards (16:9 ratio)
+            MediaCardType.EPISODE to modifier.width(320.dp).height(180.dp)
+        }
+        else -> {
+            // Other media uses poster cards
+            MediaCardType.POSTER to modifier.width(180.dp)
+        }
+    }
+
     // Use the new UnifiedMediaCard with optimized caching
     UnifiedMediaCard(
         mediaItem = mediaItem,
         onClick = onClick,
-        modifier = modifier.width(180.dp),
+        modifier = cardModifier,
         onFocus = onFocus,
-        cardType = when {
-            mediaItem.type == BaseItemKind.EPISODE -> MediaCardType.EPISODE
-            else -> MediaCardType.POSTER
-        },
+        cardType = cardType,
         showProgress = true,
         showOverlay = true
     )

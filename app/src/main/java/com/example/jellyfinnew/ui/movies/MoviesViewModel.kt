@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import com.example.jellyfinnew.data.JellyfinRepository
 import com.example.jellyfinnew.data.MediaItem
-import com.example.jellyfinnew.data.repositories.MoviesRepository
 import android.util.Log
 import com.example.jellyfinnew.data.JellyfinConfig
 
@@ -20,8 +19,7 @@ import com.example.jellyfinnew.data.JellyfinConfig
  * ViewModel for managing movies screen state and operations
  */
 class MoviesViewModel(
-    private val repository: JellyfinRepository,
-    private val moviesRepository: MoviesRepository
+    private val repository: JellyfinRepository
 ) : ViewModel() {
 
     companion object {
@@ -39,9 +37,11 @@ class MoviesViewModel(
     val focusedMovie: StateFlow<MediaItem?> = _focusedMovie.asStateFlow()
 
     // Repository state flows
-    val movies: StateFlow<List<MediaItem>> = moviesRepository.movies
-    val movieGenres: StateFlow<List<String>> = moviesRepository.movieGenres
-    val currentMovieDetails: StateFlow<MediaItem?> = moviesRepository.currentMovieDetails    // Filtered movies based on selected genre
+    val movies: StateFlow<List<MediaItem>> = repository.movies
+    val movieGenres: StateFlow<List<String>> = repository.movieGenres
+    val currentMovieDetails: StateFlow<MediaItem?> = repository.currentMovieDetails
+
+    // Filtered movies based on selected genre
     val filteredMovies: StateFlow<List<MediaItem>> = combine(
         movies,
         selectedGenre
@@ -65,24 +65,13 @@ class MoviesViewModel(
             _isLoading.value = true
             try {
                 Log.d(TAG, "Loading movies for library: $libraryId")
-                
-                val apiClient = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.apiClient else null
-                }
-                
-                val imageUrlHelper = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.imageUrlHelper else null
-                }
 
-                if (apiClient != null && imageUrlHelper != null) {
-                    moviesRepository.loadMovies(libraryId, apiClient, imageUrlHelper)
-                    
-                    // Set the first movie as focused if no movie is currently focused
-                    if (_focusedMovie.value == null && movies.value.isNotEmpty()) {
-                        _focusedMovie.value = movies.value.first()
-                    }
-                } else {
-                    Log.w(TAG, "Cannot load movies - not connected to server")
+                // Use repository delegate method instead of accessing connectionRepository directly
+                repository.loadMovies(libraryId)
+
+                // Set the first movie as focused if no movie is currently focused
+                if (_focusedMovie.value == null && movies.value.isNotEmpty()) {
+                    _focusedMovie.value = movies.value.first()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading movies", e)
@@ -101,28 +90,18 @@ class MoviesViewModel(
             try {
                 Log.d(TAG, "Loading movies for genre: $genre in library: $libraryId")
                 _selectedGenre.value = genre
-                
-                val apiClient = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.apiClient else null
-                }
-                
-                val imageUrlHelper = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.imageUrlHelper else null
+
+                if (genre.isNullOrEmpty()) {
+                    repository.loadMovies(libraryId)
+                } else {
+                    // This would need to be implemented in the repository
+                    // For now, just load all movies and let the UI filter
+                    repository.loadMovies(libraryId)
                 }
 
-                if (apiClient != null && imageUrlHelper != null) {
-                    if (genre.isNullOrEmpty()) {
-                        moviesRepository.loadMovies(libraryId, apiClient, imageUrlHelper)
-                    } else {
-                        moviesRepository.loadMoviesByGenre(libraryId, genre, apiClient, imageUrlHelper)
-                    }
-                    
-                    // Update focused movie to first in filtered list
-                    if (movies.value.isNotEmpty()) {
-                        _focusedMovie.value = movies.value.first()
-                    }
-                } else {
-                    Log.w(TAG, "Cannot load movies by genre - not connected to server")
+                // Update focused movie to first in filtered list
+                if (movies.value.isNotEmpty()) {
+                    _focusedMovie.value = movies.value.first()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading movies by genre", e)
@@ -139,20 +118,7 @@ class MoviesViewModel(
         viewModelScope.launch {
             try {
                 Log.d(TAG, "Loading movie details for: $movieId")
-                
-                val apiClient = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.apiClient else null
-                }
-                
-                val imageUrlHelper = repository.connectionState.value.let {
-                    if (it.isConnected) repository.connectionRepository.imageUrlHelper else null
-                }
-
-                if (apiClient != null && imageUrlHelper != null) {
-                    moviesRepository.loadMovieDetails(movieId, apiClient, imageUrlHelper)
-                } else {
-                    Log.w(TAG, "Cannot load movie details - not connected to server")
-                }
+                repository.loadMovieDetails(movieId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading movie details", e)
             }
@@ -193,7 +159,7 @@ class MoviesViewModel(
      * Clear all movie data
      */
     fun clearData() {
-        moviesRepository.clearAllData()
+        repository.clearMoviesData()
         _focusedMovie.value = null
         _selectedGenre.value = null
     }
@@ -203,14 +169,13 @@ class MoviesViewModel(
  * Factory for creating MoviesViewModel instances
  */
 class MoviesViewModelFactory(
-    private val repository: JellyfinRepository,
-    private val moviesRepository: MoviesRepository
+    private val repository: JellyfinRepository
 ) : ViewModelProvider.Factory {
-    
+
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MoviesViewModel::class.java)) {
-            return MoviesViewModel(repository, moviesRepository) as T
+            return MoviesViewModel(repository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
