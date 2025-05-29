@@ -383,8 +383,8 @@ private fun MediaCard(
     // Determine the appropriate card type and size based on media type
     val (cardType, cardModifier) = when (mediaItem.type) {
         BaseItemKind.EPISODE -> {
-            // Episodes should use banner/backdrop cards (16:9 ratio)
-            MediaCardType.EPISODE to modifier.width(320.dp).height(180.dp)
+            // Episodes should now use vertical poster cards
+            MediaCardType.POSTER to modifier.width(180.dp).height(270.dp) // Maintain 2:3 aspect ratio for vertical poster cards
         }
         else -> {
             // Other media uses poster cards

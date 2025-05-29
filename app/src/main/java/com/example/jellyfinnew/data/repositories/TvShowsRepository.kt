@@ -284,8 +284,8 @@ class TvShowsRepository {
                 id = episodeId,
                 name = episodeName,
                 overview = episode.overview,
-                imageUrl = episodeImage ?: seriesPosterUrl,
-                backdropUrl = episodeBackdrop ?: seriesPosterUrl,
+                imageUrl = seriesPosterUrl ?: episodeImage, // Prioritize series poster for vertical card
+                backdropUrl = episodeBackdrop ?: seriesPosterUrl, // Keep original backdrop logic or use another suitable landscape image
                 type = BaseItemKind.EPISODE,
                 runTimeTicks = episode.runTimeTicks,
                 userData = episode.userData?.let { userData ->

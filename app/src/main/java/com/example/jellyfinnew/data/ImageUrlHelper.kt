@@ -64,7 +64,7 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {
 
     // Library backdrop images (16:9 aspect ratio, medium size)
     fun buildLibraryBackdropUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Backdrop", LIBRARY_WIDTH, LIBRARY_HEIGHT)
+        buildImageUrl(itemId, "Primary", LIBRARY_WIDTH, LIBRARY_HEIGHT)
 
     // Episode thumb images (horizontal, legacy method name for compatibility)
     fun buildThumbUrl(itemId: String): String? =
@@ -98,11 +98,16 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {
                 val backdrop = buildBackdropUrl(itemId)
                 poster to backdrop
             }
-            "backdrop", "library" -> {
+            "library" -> {
+                val primary = buildImageUrl(itemId, "Primary", JellyfinConfig.Images.POSTER_WIDTH, JellyfinConfig.Images.POSTER_HEIGHT)
+                val backdrop = buildImageUrl(itemId, "Backdrop", LIBRARY_WIDTH, LIBRARY_HEIGHT)
+            }
+            "backdrop" -> { // Assuming this case remains unchanged for now
                 val backdrop = buildLibraryBackdropUrl(itemId) ?: buildBackdropUrl(itemId)
                 val poster = buildPosterUrl(itemId)
                 backdrop to poster
-            }            "episode" -> {
+            }
+            "episode" -> {
                 val episodeThumb = buildThumbUrl(itemId) // Use Thumb image type for episodes
                 val backdrop = buildBackdropUrl(itemId)
                 episodeThumb to backdrop
