@@ -104,9 +104,9 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {
                 primary to backdrop // Ensure this line is exactly like this
             }
             "backdrop" -> {
-                // This uses buildLibraryBackdropUrl which itself was changed to fetch "Primary" first.
+                // This explicitly uses buildImageUrl to fetch "Backdrop" type images first.
                 // For clarity and to ensure "Backdrop" type cards truly get backdrops first,
-                // let's make it explicit here.
+                // the parameters specify "Backdrop" as the image type.
                 val backdropImage = buildImageUrl(itemId, "Backdrop", BACKDROP_WIDTH, BACKDROP_HEIGHT)
                 val posterImage = buildPosterUrl(itemId) // Fallback or secondary
                 backdropImage to posterImage
