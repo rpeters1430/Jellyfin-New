@@ -1,5 +1,6 @@
 package com.example.jellyfinnew.di
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.example.jellyfinnew.data.JellyfinRepository
 import com.example.jellyfinnew.data.UserPreferencesManager
@@ -12,6 +13,7 @@ import com.example.jellyfinnew.data.repositories.MusicRepository
 import com.example.jellyfinnew.ui.movies.MoviesViewModelFactory
 import com.example.jellyfinnew.ui.music.MusicViewModelFactory
 
+@SuppressLint("StaticFieldLeak") // Using applicationContext which is safe
 object ServiceLocator {
     @Volatile
     private var repository: JellyfinRepository? = null

@@ -30,6 +30,8 @@ import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
 import com.example.jellyfinnew.ui.home.components.*
 import com.example.jellyfinnew.ui.utils.TvOptimizations
+import com.example.jellyfinnew.ui.utils.TvSpacing
+import com.example.jellyfinnew.ui.utils.TvListDefaults
 import com.example.jellyfinnew.ui.components.UnifiedMediaCard
 import com.example.jellyfinnew.ui.components.MediaCardType
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -155,8 +157,8 @@ private fun MainHomeContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(TvOptimizations.TvListDefaults.contentPadding),
-        verticalArrangement = Arrangement.spacedBy(TvOptimizations.TvListDefaults.sectionSpacing)
+        contentPadding = PaddingValues(TvListDefaults.contentPadding),
+        verticalArrangement = Arrangement.spacedBy(TvListDefaults.sectionSpacing)
     ) {
         // Header
         item {
@@ -167,8 +169,8 @@ private fun MainHomeContent(
         if (featuredItems.isNotEmpty()) {
             item {
                 Column(
-                    modifier = Modifier.padding(top = TvOptimizations.TvSpacing.small),
-                    verticalArrangement = Arrangement.spacedBy(TvOptimizations.TvSpacing.medium)
+                    modifier = Modifier.padding(top = TvSpacing.small),
+                    verticalArrangement = Arrangement.spacedBy(TvSpacing.medium)
                 ) {
                     EnhancedFeaturedCarousel(
                         featuredItems = featuredItems,

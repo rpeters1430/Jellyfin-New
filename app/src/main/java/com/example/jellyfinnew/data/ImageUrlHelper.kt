@@ -1,28 +1,26 @@
 package com.example.jellyfinnew.data
 
+import android.util.Log
 import org.jellyfin.sdk.api.client.ApiClient
 
 /**
- * Helper class for building Jellyfin image URLs with consistent parameters
+ * Enhanced helper class for building Jellyfin image URLs with proper aspect ratios
  */
-class ImageUrlHelper(private val apiClient: ApiClient?) {    companion object {
-        private const val DEFAULT_QUALITY = 90 // Increased quality for better TV viewing
+class ImageUrlHelper(private val apiClient: ApiClient?) {
+    
+    companion object {
+        private const val DEFAULT_QUALITY = 90
+        private const val TAG = "ImageUrlHelper"
         
-        // Optimized sizes for TV viewing
-        private const val POSTER_WIDTH = 480
-        private const val POSTER_HEIGHT = 720
-        private const val BACKDROP_WIDTH = 1920
-        private const val BACKDROP_HEIGHT = 1080
-        private const val THUMB_WIDTH = 960
-        private const val THUMB_HEIGHT = 540
-        private const val LIBRARY_BACKDROP_WIDTH = 1600
-        private const val LIBRARY_BACKDROP_HEIGHT = 900
-        
-        // Additional sizes for different card types
-        private const val SMALL_POSTER_WIDTH = 320
-        private const val SMALL_POSTER_HEIGHT = 480
-        private const val EPISODE_THUMB_WIDTH = 854
-        private const val EPISODE_THUMB_HEIGHT = 480
+        // TV-optimized sizes for different card types
+        private const val POSTER_WIDTH = 400 // Reduced for TV performance
+        private const val POSTER_HEIGHT = 600
+        private const val BACKDROP_WIDTH = 1280 // Reduced from 1920 for TV
+        private const val BACKDROP_HEIGHT = 720
+        private const val EPISODE_WIDTH = 800 // Horizontal episode cards
+        private const val EPISODE_HEIGHT = 450
+        private const val LIBRARY_WIDTH = 1200 // Library backdrop cards
+        private const val LIBRARY_HEIGHT = 675
     }
 
     private fun buildImageUrl(
@@ -33,7 +31,7 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {    companion object {
         quality: Int = DEFAULT_QUALITY
     ): String? {
         return apiClient?.let { client ->
-            buildString {
+            val url = buildString {
                 append("${client.baseUrl}/Items/$itemId/Images/$imageType")
 
                 val params = mutableListOf<String>()
@@ -46,36 +44,80 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {    companion object {
                     append("?${params.joinToString("&")}")
                 }
             }
+            Log.d(TAG, "Built image URL for $itemId ($imageType): $url")
+            url
+        } ?: run {
+            Log.w(TAG, "ApiClient is null, cannot build image URL for $itemId")
+            null
         }
     }
 
+    // Vertical poster images (2:3 aspect ratio)
     fun buildPosterUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Primary", POSTER_WIDTH, POSTER_HEIGHT)
-
+        buildImageUrl(itemId, "Primary", POSTER_WIDTH, POSTER_HEIGHT)    // Horizontal backdrop images (16:9 aspect ratio)
     fun buildBackdropUrl(itemId: String): String? =
         buildImageUrl(itemId, "Backdrop", BACKDROP_WIDTH, BACKDROP_HEIGHT)
 
-    fun buildThumbUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Thumb", THUMB_WIDTH, THUMB_HEIGHT)
-
-    fun buildLibraryBackdropUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Backdrop", LIBRARY_BACKDROP_WIDTH, LIBRARY_BACKDROP_HEIGHT)
-
-    fun buildSmallPosterUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Primary", SMALL_POSTER_WIDTH, SMALL_POSTER_HEIGHT)
-
+    // Episode thumb images (16:9 aspect ratio, smaller)
     fun buildEpisodeThumbUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Primary", EPISODE_THUMB_WIDTH, EPISODE_THUMB_HEIGHT)
+        buildImageUrl(itemId, "Thumb", EPISODE_WIDTH, EPISODE_HEIGHT)
+
+    // Library backdrop images (16:9 aspect ratio, medium size)
+    fun buildLibraryBackdropUrl(itemId: String): String? =
+        buildImageUrl(itemId, "Backdrop", LIBRARY_WIDTH, LIBRARY_HEIGHT)
+
+    // Episode thumb images (horizontal, legacy method name for compatibility)
+    fun buildThumbUrl(itemId: String): String? =
+        buildImageUrl(itemId, "Thumb", EPISODE_WIDTH, EPISODE_HEIGHT)
+
+    // Square images (1:1 aspect ratio)
+    fun buildSquareUrl(itemId: String): String? =
+        buildImageUrl(itemId, "Primary", 500, 500)
 
     /**
-     * Get the best available image URL for library cards (prefer backdrop, fallback to primary/thumb)
+     * Smart image URL selection based on card type and available images
      */
-    fun buildLibraryImageUrl(itemId: String): String? {
-        return buildLibraryBackdropUrl(itemId) ?: buildPosterUrl(itemId) ?: buildThumbUrl(itemId)
+    fun getOptimalImageUrl(itemId: String, cardType: String): String? {
+        return when (cardType) {
+            "poster" -> buildPosterUrl(itemId)
+            "backdrop" -> buildBackdropUrl(itemId)
+            "episode" -> buildThumbUrl(itemId) ?: buildBackdropUrl(itemId)
+            "library" -> buildLibraryBackdropUrl(itemId) ?: buildBackdropUrl(itemId)
+            "square" -> buildSquareUrl(itemId)
+            else -> buildPosterUrl(itemId)
+        }
     }
 
     /**
-     * Get poster and backdrop URLs for media items
+     * Get appropriate image URLs with fallbacks for media cards
+     */
+    fun getImageUrlsForCardType(itemId: String, cardType: String): Pair<String?, String?> {
+        return when (cardType) {
+            "poster" -> {
+                val poster = buildPosterUrl(itemId)
+                val backdrop = buildBackdropUrl(itemId)
+                poster to backdrop
+            }
+            "backdrop", "library" -> {
+                val backdrop = buildLibraryBackdropUrl(itemId) ?: buildBackdropUrl(itemId)
+                val poster = buildPosterUrl(itemId)
+                backdrop to poster
+            }            "episode" -> {
+                val episodeThumb = buildThumbUrl(itemId) // Use Thumb image type for episodes
+                val backdrop = buildBackdropUrl(itemId)
+                episodeThumb to backdrop
+            }
+            "square" -> {
+                val square = buildSquareUrl(itemId)
+                val poster = buildPosterUrl(itemId)
+                square to poster
+            }
+            else -> buildMediaImageUrls(itemId)
+        }
+    }
+
+    /**
+     * Legacy method for compatibility
      */
     fun buildMediaImageUrls(itemId: String): Pair<String?, String?> {
         val posterUrl = buildPosterUrl(itemId)
@@ -94,25 +136,6 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {    companion object {
                     append("?api_key=$token")
                 }
             }
-        }
-    }
-
-    /**
-     * Get optimized image URLs based on card type for better caching
-     */
-    fun buildOptimizedImageUrls(itemId: String, cardType: String): Pair<String?, String?> {
-        return when (cardType) {
-            "episode" -> {
-                val thumbUrl = buildEpisodeThumbUrl(itemId)
-                val backdropUrl = buildBackdropUrl(itemId)
-                thumbUrl to backdropUrl
-            }
-            "small" -> {
-                val smallPosterUrl = buildSmallPosterUrl(itemId)
-                val backdropUrl = buildBackdropUrl(itemId)
-                smallPosterUrl to backdropUrl
-            }
-            else -> buildMediaImageUrls(itemId)
         }
     }
 }

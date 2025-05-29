@@ -28,6 +28,8 @@ import com.example.jellyfinnew.ui.components.UnifiedMediaCard
 import com.example.jellyfinnew.ui.components.MediaCardType
 import com.example.jellyfinnew.ui.utils.TvFocusableCard
 import com.example.jellyfinnew.ui.utils.TvOptimizations
+import com.example.jellyfinnew.ui.utils.TvSpacing
+import com.example.jellyfinnew.ui.utils.TvListDefaults
 import kotlinx.coroutines.delay
 import java.util.Locale
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -238,13 +240,13 @@ fun MediaLibrarySection(
     libraries: List<MediaItem>,
     onLibraryClick: (MediaItem) -> Unit,
     onLibraryFocus: (String?) -> Unit,
-    onLibraryIndexFocused: ((Int, List<MediaItem>) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    onLibraryIndexFocused: ((Int, List<MediaItem>) -> Unit)? = null,
     isLoading: Boolean = false
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(TvOptimizations.TvSpacing.medium)
+        verticalArrangement = Arrangement.spacedBy(TvSpacing.medium)
     ) {
         Text(
             text = "Libraries",
@@ -278,7 +280,7 @@ fun MediaLibrarySection(
         } else {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(TvOptimizations.TvListDefaults.itemSpacing)
+                horizontalArrangement = Arrangement.spacedBy(TvListDefaults.itemSpacing)
             ) {
                 itemsIndexed(libraries) { index, library ->
                     LibraryCard(
@@ -328,8 +330,8 @@ fun RecentlyAddedSection(
     items: List<MediaItem>,
     onItemClick: (String) -> Unit,
     onItemFocus: (String?) -> Unit,
-    onItemIndexFocused: ((Int, List<MediaItem>) -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onItemIndexFocused: ((Int, List<MediaItem>) -> Unit)? = null
 ) {
     if (items.isNotEmpty()) {
         Column(
@@ -461,8 +463,8 @@ fun LoadingState(
 @Composable
 fun ErrorState(
     error: String,
-    onRetry: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRetry: (() -> Unit)? = null
 ) {
     Box(
         modifier = modifier.fillMaxSize(),

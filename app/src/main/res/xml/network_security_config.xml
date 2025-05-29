@@ -48,12 +48,5 @@
             <certificates src="user"/>
         </trust-anchors>
     </base-config>
-    
-    <!-- Debug configuration - same as base for consistency -->
-    <debug-overrides>
-        <trust-anchors>
-            <certificates src="system"/>
-            <certificates src="user"/>
-        </trust-anchors>
-    </debug-overrides>
+  
 </network-security-config>

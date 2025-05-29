@@ -34,12 +34,11 @@ object TvInputOptimizations {
             else -> false
         }
     }
-    
-    /**
+      /**
      * Debounced focus handling to reduce performance impact
      */
     @Composable
-    fun rememberDebouncedFocusHandler(
+    fun Modifier.debouncedFocusHandler(
         onFocusChanged: (Boolean) -> Unit,
         debounceMs: Long = 100L
     ): Modifier {
@@ -51,8 +50,7 @@ object TvInputOptimizations {
             }
             onFocusChanged(isFocused)
         }
-        
-        return Modifier.onFocusChanged { focusState ->
+          return this.onFocusChanged { focusState ->
             isFocused = focusState.isFocused
         }
     }

@@ -1,7 +1,7 @@
 package com.example.jellyfinnew.utils
 
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.repeatOnLifecycle
@@ -36,25 +36,7 @@ object PerformanceUtils {
                     .directory(context.cacheDir.resolve("image_cache"))
                     .maxSizeBytes(100 * 1024 * 1024) // 100MB disk cache
                     .build()
-            }
-            .respectCacheHeaders(false) // Jellyfin images don't always have proper cache headers
-            .build()
-    }
-
-    /**
-     * Creates optimized image request for TV viewing
-     */
-    fun createOptimizedImageRequest(
-        context: Context,
-        url: String?,
-        crossfadeEnabled: Boolean = true
-    ): ImageRequest {
-        return ImageRequest.Builder(context)
-            .data(url)
-            .memoryCachePolicy(CachePolicy.ENABLED)
-            .diskCachePolicy(CachePolicy.ENABLED)
-            .networkCachePolicy(CachePolicy.ENABLED)
-            .crossfade(crossfadeEnabled)
+            }            .respectCacheHeaders(false) // Jellyfin images don't always have proper cache headers
             .build()
     }
 }
@@ -64,7 +46,6 @@ object PerformanceUtils {
  */
 @Composable
 fun <T> StateFlow<T>.collectAsLifecycleAwareState(): State<T> {
-    val lifecycleOwner = LocalLifecycleOwner.current
     return collectAsState(
         context = remember {
             kotlinx.coroutines.Dispatchers.Main.immediate +
@@ -77,14 +58,14 @@ fun <T> StateFlow<T>.collectAsLifecycleAwareState(): State<T> {
  * Memory leak prevention for ViewModels
  */
 @Composable
-fun <T> Flow<T>.collectWithLifecycle(
+fun <T> Flow<T>.CollectWithLifecycle(
     lifecycle: Lifecycle = LocalLifecycleOwner.current.lifecycle,
     minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
     collector: suspend (T) -> Unit
 ) {
     LaunchedEffect(this, lifecycle, minActiveState) {
         lifecycle.repeatOnLifecycle(minActiveState) {
-            this@collectWithLifecycle.collectLatest(collector)
+            this@CollectWithLifecycle.collectLatest(collector)
         }
     }
 }

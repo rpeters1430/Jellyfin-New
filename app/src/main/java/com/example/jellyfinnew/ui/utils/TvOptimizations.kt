@@ -4,6 +4,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -16,6 +17,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.CardDefaults
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.jellyfinnew.ui.utils.ImageCacheManager
 import kotlinx.coroutines.delay
 
 /**
@@ -59,42 +61,31 @@ object TvOptimizations {
         }
         
         debouncedImageUrl?.let { url ->
-            AsyncImage(
-                model = createOptimizedImageRequest(url),
-                contentDescription = null,
-                modifier = modifier
-                    .fillMaxSize()
-                    .drawWithCache {
-                        val gradient = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.7f),
-                                Color.Black.copy(alpha = 0.3f),
-                                Color.Black.copy(alpha = 0.7f)
-                            )
-                        )
-                        onDrawBehind {
-                            drawRect(gradient)
-                        }
-                    },
-                contentScale = ContentScale.Crop
+            val imageRequest = ImageCacheManager.createOptimizedImageRequest(
+                url = url,
+                enableCrossfade = false
             )
-        }
-    }
-    
-    /**
-     * Memory-optimized image request for TV
-     */
-    @Composable
-    private fun createOptimizedImageRequest(url: String): ImageRequest {
-        val context = LocalContext.current
-        return remember(url) {
-            ImageRequest.Builder(context)
-                .data(url)
-                .memoryCacheKey(url)
-                .diskCacheKey(url)
-                .crossfade(false) // Disable crossfade for better performance
-                .allowHardware(true) // Use hardware acceleration
-                .build()
+            if (imageRequest != null) {
+                AsyncImage(
+                    model = imageRequest,
+                    contentDescription = null,
+                    modifier = modifier
+                        .fillMaxSize()
+                        .drawWithCache {
+                            val gradient = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.7f),
+                                    Color.Black.copy(alpha = 0.3f),
+                                    Color.Black.copy(alpha = 0.7f)
+                                )
+                            )
+                            onDrawBehind {
+                                drawRect(gradient)
+                            }
+                        },
+                    contentScale = ContentScale.Crop
+                )
+            }
         }
     }
     
@@ -102,23 +93,24 @@ object TvOptimizations {
      * TV-optimized focus handling with reduced re-compositions
      */
     @Composable
-    fun rememberTvFocusState(
+    fun Modifier.tvFocusState(
         onFocusChange: (Boolean) -> Unit
     ): Modifier {
         var isFocused by remember { mutableStateOf(false) }
         
-        return Modifier.focusable().then(
-            remember {
-                Modifier.focusable().apply {
-                    // Debounce focus changes to reduce re-compositions
-                }
+        return this.onFocusChanged { focusState ->
+            val focused = focusState.isFocused
+            if (isFocused != focused) {
+                isFocused = focused
+                onFocusChange(focused)
             }
-        )
+        }.focusable()
     }
     
     /**
      * Optimized image loading with reduced memory footprint
-     */    @Composable
+     */
+    @Composable
     fun OptimizedAsyncImage(
         imageUrl: String?,
         contentDescription: String? = null,
@@ -144,25 +136,25 @@ object TvOptimizations {
             )
         }
     }
-    
-    /**
-     * Reduced padding and spacing for better TV layout
-     */
-    object TvSpacing {
-        val small = 8.dp
-        val medium = 12.dp
-        val large = 16.dp
-        val xlarge = 20.dp
-    }
-    
-    /**
-     * TV-optimized list spacing to reduce scroll lag
-     */
-    object TvListDefaults {
-        val itemSpacing = 12.dp
-        val sectionSpacing = 20.dp
-        val contentPadding = 16.dp
-    }
+}
+
+/**
+ * Reduced padding and spacing for better TV layout
+ */
+object TvSpacing {
+    val small = 8.dp
+    val medium = 12.dp
+    val large = 16.dp
+    val xlarge = 20.dp
+}
+
+/**
+ * TV-optimized list spacing to reduce scroll lag
+ */
+object TvListDefaults {
+    val itemSpacing = 12.dp
+    val sectionSpacing = 20.dp
+    val contentPadding = 16.dp
 }
 
 /**

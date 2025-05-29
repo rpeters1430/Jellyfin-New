@@ -18,6 +18,7 @@ import com.example.jellyfinnew.data.MediaItem
 import com.example.jellyfinnew.ui.components.UnifiedMediaCard
 import com.example.jellyfinnew.ui.components.MediaCardType
 import com.example.jellyfinnew.ui.utils.TvOptimizations
+import com.example.jellyfinnew.ui.utils.TvSpacing
 import com.example.jellyfinnew.ui.home.components.LoadingState
 import com.example.jellyfinnew.ui.home.components.ErrorState
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -90,14 +91,14 @@ private fun GeneralMediaContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(TvOptimizations.TvSpacing.large)
+            .padding(TvSpacing.large)
     ) {
         // Header with back button and title
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = TvOptimizations.TvSpacing.large)
+                .padding(bottom = TvSpacing.large)
         ) {
             Button(
                 onClick = onBack,
@@ -110,7 +111,7 @@ private fun GeneralMediaContent(
                 Text("← Back")
             }
 
-            Spacer(modifier = Modifier.width(TvOptimizations.TvSpacing.large))
+            Spacer(modifier = Modifier.width(TvSpacing.large))
 
             Text(
                 text = libraryName,
@@ -137,11 +138,11 @@ private fun GeneralMediaContent(
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 200.dp),
                 contentPadding = PaddingValues(
-                    horizontal = TvOptimizations.TvSpacing.medium,
-                    vertical = TvOptimizations.TvSpacing.medium
+                    horizontal = TvSpacing.medium,
+                    vertical = TvSpacing.medium
                 ),
-                horizontalArrangement = Arrangement.spacedBy(TvOptimizations.TvSpacing.medium),
-                verticalArrangement = Arrangement.spacedBy(TvOptimizations.TvSpacing.large),
+                horizontalArrangement = Arrangement.spacedBy(TvSpacing.medium),
+                verticalArrangement = Arrangement.spacedBy(TvSpacing.large),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(items) { item ->
