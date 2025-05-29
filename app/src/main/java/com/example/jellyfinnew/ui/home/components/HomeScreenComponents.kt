@@ -384,7 +384,7 @@ private fun MediaCard(
     val (cardType, cardModifier) = when (mediaItem.type) {
         BaseItemKind.EPISODE -> {
             // Episodes should now use vertical poster cards
-            MediaCardType.POSTER to modifier.width(180.dp) // This width is typical for poster cards in this file
+            MediaCardType.POSTER to modifier.width(180.dp).height(270.dp) // Maintain 2:3 aspect ratio for vertical poster cards
         }
         else -> {
             // Other media uses poster cards
