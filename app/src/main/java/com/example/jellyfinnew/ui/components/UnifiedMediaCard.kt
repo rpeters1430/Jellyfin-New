@@ -2,8 +2,8 @@ package com.example.jellyfinnew.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.RoundedCornerShape // Keep for fallback or specific cases if needed, but prefer theme shapes
+import androidx.compose.material3.MaterialTheme // Ensure this is present
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,7 +52,9 @@ fun UnifiedMediaCard(
         ),
         onFocus = onFocus,
         onUnfocus = onUnfocus,
-        shape = CardDefaults.shape(RoundedCornerShape(8.dp)),
+        // Removed explicit shape to use MaterialTheme.shapes.medium by default from TvFocusableCard's internal theming if it works,
+        // or it will use the default TvFocusableCard shape.
+        // If specific theme shape is required and not picked up: shape = MaterialTheme.shapes.medium,
         scale = CardDefaults.scale(
             scale = 1.0f,
             focusedScale = 1.05f
@@ -68,7 +70,7 @@ fun UnifiedMediaCard(
                 cardType = cardType,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(MaterialTheme.shapes.medium) // Use theme's medium shape
             )
             
             // Overlay with text information
@@ -94,8 +96,8 @@ fun UnifiedMediaCard(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
-                            Color.White.copy(alpha = 0.1f),
-                            RoundedCornerShape(8.dp)
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), // Use theme color
+                            MaterialTheme.shapes.medium // Use theme's medium shape
                         )
                 )
             }
@@ -153,15 +155,14 @@ private fun StandardOverlay(
     ) {
         Text(
             text = mediaItem.name,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color.White,
+            style = MaterialTheme.typography.titleSmall, // Use theme typography
+            color = MaterialTheme.colorScheme.inverseOnSurface, // Use theme color
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .background(
-                    Color.Black.copy(alpha = 0.7f),
-                    RoundedCornerShape(4.dp)
+                    Color.Black.copy(alpha = 0.7f), // Keeping scrim color for now
+                    MaterialTheme.shapes.small // Use theme's small shape
                 )
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         )
@@ -181,15 +182,14 @@ private fun EpisodeOverlay(
         mediaItem.seriesName?.let { seriesName ->
             Text(
                 text = seriesName,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Normal,
-                color = Color.White.copy(alpha = 0.8f),
+                style = MaterialTheme.typography.labelMedium, // Use theme typography
+                color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.8f), // Use theme color
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .background(
-                        Color.Black.copy(alpha = 0.6f),
-                        RoundedCornerShape(4.dp)
+                        Color.Black.copy(alpha = 0.6f), // Keeping scrim color
+                        MaterialTheme.shapes.small // Use theme's small shape
                     )
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             )
@@ -200,15 +200,14 @@ private fun EpisodeOverlay(
         // Episode name
         Text(
             text = mediaItem.episodeName ?: mediaItem.name,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color.White,
+            style = MaterialTheme.typography.titleSmall, // Use theme typography
+            color = MaterialTheme.colorScheme.inverseOnSurface, // Use theme color
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .background(
-                    Color.Black.copy(alpha = 0.7f),
-                    RoundedCornerShape(4.dp)
+                    Color.Black.copy(alpha = 0.7f), // Keeping scrim color
+                    MaterialTheme.shapes.small // Use theme's small shape
                 )
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         )
@@ -231,7 +230,7 @@ private fun WatchProgressIndicator(
                 modifier = modifier
                     .fillMaxWidth()
                     .height(4.dp)
-                    .background(Color.Black.copy(alpha = 0.3f))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)) // Use theme color
             ) {
                 Box(
                     modifier = Modifier

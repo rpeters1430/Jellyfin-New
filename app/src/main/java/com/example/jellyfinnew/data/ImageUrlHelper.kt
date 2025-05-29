@@ -64,7 +64,7 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {
 
     // Library backdrop images (16:9 aspect ratio, medium size)
     fun buildLibraryBackdropUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Backdrop", LIBRARY_WIDTH, LIBRARY_HEIGHT)
+        buildImageUrl(itemId, "Primary", LIBRARY_WIDTH, LIBRARY_HEIGHT)
 
     // Episode thumb images (horizontal, legacy method name for compatibility)
     fun buildThumbUrl(itemId: String): String? =
@@ -98,21 +98,32 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {
                 val backdrop = buildBackdropUrl(itemId)
                 poster to backdrop
             }
-            "backdrop", "library" -> {
-                val backdrop = buildLibraryBackdropUrl(itemId) ?: buildBackdropUrl(itemId)
-                val poster = buildPosterUrl(itemId)
-                backdrop to poster
-            }            "episode" -> {
-                val episodeThumb = buildThumbUrl(itemId) // Use Thumb image type for episodes
-                val backdrop = buildBackdropUrl(itemId)
-                episodeThumb to backdrop
+            "library" -> {
+                val primary = buildImageUrl(itemId, "Primary", LIBRARY_WIDTH, LIBRARY_HEIGHT)
+                val backdrop = buildImageUrl(itemId, "Backdrop", LIBRARY_WIDTH, LIBRARY_HEIGHT)
+                primary to backdrop // Ensure this line is exactly like this
+            }
+            "backdrop" -> {
+                // This uses buildLibraryBackdropUrl which itself was changed to fetch "Primary" first.
+                // For clarity and to ensure "Backdrop" type cards truly get backdrops first,
+                // let's make it explicit here.
+                val backdropImage = buildImageUrl(itemId, "Backdrop", BACKDROP_WIDTH, BACKDROP_HEIGHT)
+                val posterImage = buildPosterUrl(itemId) // Fallback or secondary
+                backdropImage to posterImage
+            }
+            "episode" -> {
+                val episodeThumb = buildThumbUrl(itemId) // Thumb is landscape
+                val backdrop = buildBackdropUrl(itemId)  // Backdrop is landscape
+                episodeThumb to backdrop // This is for landscape episode views, not the poster ones.
             }
             "square" -> {
                 val square = buildSquareUrl(itemId)
                 val poster = buildPosterUrl(itemId)
                 square to poster
             }
-            else -> buildMediaImageUrls(itemId)
+            else -> { // Ensure 'else' branch is present and correct
+                buildMediaImageUrls(itemId) // This function returns Pair<String?, String?>
+            }
         }
     }
 

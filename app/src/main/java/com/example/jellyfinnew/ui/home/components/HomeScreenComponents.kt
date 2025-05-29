@@ -2,8 +2,9 @@ package com.example.jellyfinnew.ui.home.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.RoundedCornerShape // Keep for specific non-theme shapes if any
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme // Ensure MaterialTheme is imported
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,9 +77,9 @@ fun EnhancedFeaturedCarousel(
     ) {
         Text(
             text = "Featured",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.headlineMedium, // Use theme typography
             modifier = Modifier.padding(horizontal = 4.dp)
+            // Color will be MaterialTheme.colorScheme.onSurface by default
         )
 
         TvFocusableCard(
@@ -88,7 +89,7 @@ fun EnhancedFeaturedCarousel(
                 .height(420.dp), // Increased from 320dp to 420dp
             onFocus = { isPaused = true },
             onUnfocus = { isPaused = false },
-            shape = CardDefaults.shape(RoundedCornerShape(16.dp)),
+            shape = MaterialTheme.shapes.large, // Use theme shape
             scale = CardDefaults.scale(
                 scale = 1.0f,
                 focusedScale = 1.02f
@@ -143,9 +144,8 @@ private fun FeaturedItemContent(
         ) {
             Text(
                 text = item.name,
-                fontSize = if (isFocused) 32.sp else 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
+                style = if (isFocused) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.inverseOnSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -159,17 +159,16 @@ private fun FeaturedItemContent(
                 item.communityRating?.let { rating ->
                     Text(
                         text = "★ ${String.format(Locale.getDefault(), "%.1f", rating)}",
-                        fontSize = 16.sp,
-                        color = Color.Yellow,
-                        fontWeight = FontWeight.Medium
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.tertiary // Use theme color for rating
                     )
                 }
 
                 item.productionYear?.let { year ->
                     Text(
                         text = year.toString(),
-                        fontSize = 16.sp,
-                        color = Color.White.copy(alpha = 0.8f)
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.8f)
                     )
                 }
 
@@ -177,8 +176,8 @@ private fun FeaturedItemContent(
                     val minutes = (ticks / 10_000_000 / 60).toInt()
                     Text(
                         text = "${minutes}m",
-                        fontSize = 16.sp,
-                        color = Color.White.copy(alpha = 0.8f)
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.8f)
                     )
                 }
             }
@@ -187,11 +186,11 @@ private fun FeaturedItemContent(
             item.overview?.let { overview ->
                 Text(
                     text = overview,
-                    fontSize = 14.sp,
-                    color = Color.White.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.bodyMedium, // Use theme typography
+                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.9f), // Use theme color
                     maxLines = if (isFocused) 4 else 3,
                     overflow = TextOverflow.Ellipsis,
-                    lineHeight = 20.sp,
+                    // Removed explicit lineHeight, rely on theme style's line height
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
             }
@@ -207,10 +206,10 @@ private fun FeaturedItemContent(
                             .size(if (index == currentIndex) 12.dp else 8.dp)
                             .background(
                                 color = if (index == currentIndex)
-                                    Color.White
+                                    MaterialTheme.colorScheme.inverseOnSurface // Use theme color
                                 else
-                                    Color.White.copy(alpha = 0.4f),
-                                shape = androidx.compose.foundation.shape.CircleShape
+                                    MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.4f), // Use theme color
+                                shape = androidx.compose.foundation.shape.CircleShape // Keeping circle shape
                             )
                     )
                 }
@@ -223,8 +222,8 @@ private fun FeaturedItemContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        Color.White.copy(alpha = 0.05f),
-                        RoundedCornerShape(16.dp)
+                        MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.05f), // Use theme color
+                        MaterialTheme.shapes.large // Use theme shape
                     )
             )
         }
@@ -250,9 +249,9 @@ fun MediaLibrarySection(
     ) {
         Text(
             text = "Libraries",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.headlineSmall, // Use theme typography
             modifier = Modifier.padding(horizontal = 4.dp)
+            // Color will be MaterialTheme.colorScheme.onSurface by default
         )
 
         if (isLoading) {
@@ -262,7 +261,7 @@ fun MediaLibrarySection(
                     .height(200.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator()
+                CircularProgressIndicator() // Color will be MaterialTheme.colorScheme.primary by default
             }
         } else if (libraries.isEmpty()) {
             Box(
@@ -273,8 +272,8 @@ fun MediaLibrarySection(
             ) {
                 Text(
                     text = "No libraries found",
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    style = MaterialTheme.typography.bodyLarge, // Use theme typography
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) // Keep existing color logic
                 )
             }
         } else {
@@ -340,9 +339,9 @@ fun RecentlyAddedSection(
         ) {
             Text(
                 text = title,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleLarge, // Use theme typography
                 modifier = Modifier.padding(horizontal = 4.dp)
+                // Color will be MaterialTheme.colorScheme.onSurface by default
             )
 
             LazyRow(
@@ -383,8 +382,8 @@ private fun MediaCard(
     // Determine the appropriate card type and size based on media type
     val (cardType, cardModifier) = when (mediaItem.type) {
         BaseItemKind.EPISODE -> {
-            // Episodes should use banner/backdrop cards (16:9 ratio)
-            MediaCardType.EPISODE to modifier.width(320.dp).height(180.dp)
+            // Episodes should now use vertical poster cards
+            MediaCardType.POSTER to modifier.width(180.dp) // This width is typical for poster cards in this file
         }
         else -> {
             // Other media uses poster cards
@@ -420,13 +419,12 @@ fun HomeHeader(
     ) {
         Text(
             text = "Jellyfin",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            style = MaterialTheme.typography.displaySmall, // Use theme typography
+            color = MaterialTheme.colorScheme.primary // Keep existing color logic
         )
 
         Button(onClick = onDisconnect) {
-            Text("Disconnect")
+            Text("Disconnect") // Button text style will come from theme's default for buttons
         }
     }
 }
@@ -447,11 +445,11 @@ fun LoadingState(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            CircularProgressIndicator()
+            CircularProgressIndicator() // Color will be MaterialTheme.colorScheme.primary by default
             Text(
                 text = message,
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                style = MaterialTheme.typography.bodyLarge, // Use theme typography
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f) // Keep existing color logic
             )
         }
     }
@@ -477,21 +475,20 @@ fun ErrorState(
         ) {
             Text(
                 text = "Error",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.error
+                style = MaterialTheme.typography.headlineSmall, // Use theme typography
+                color = MaterialTheme.colorScheme.error // Keep existing color logic
             )
 
             Text(
                 text = error,
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.bodyLarge, // Use theme typography
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f) // Keep existing color logic
             )
 
             onRetry?.let { retry ->
                 Button(onClick = retry) {
-                    Text("Retry")
+                    Text("Retry") // Button text style will come from theme's default for buttons
                 }
             }
         }

@@ -270,7 +270,11 @@ class MediaRepository {
     ): MediaItem? {
         return try {
             val itemId = dto.id.toString()
-            val (posterUrl, backdropUrl) = imageHelper.buildMediaImageUrls(itemId)
+            val (posterUrl, backdropUrl) = if (dto.type == BaseItemKind.COLLECTION_FOLDER || dto.type == BaseItemKind.USER_VIEW) {
+                imageHelper.getImageUrlsForCardType(itemId, "library")
+            } else {
+                imageHelper.buildMediaImageUrls(itemId)
+            }
 
             MediaItem(
                 id = itemId,

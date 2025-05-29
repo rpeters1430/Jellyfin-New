@@ -243,8 +243,8 @@ private fun LibraryContentView(
 
             Text(
                 text = mediaLibraries.find { it.id == selectedLibraryId }?.name ?: "Library",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.headlineMedium // Use theme typography
+                // Color will be MaterialTheme.colorScheme.onSurface by default
             )
         }
 
