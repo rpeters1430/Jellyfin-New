@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import com.example.jellyfinnew.di.ServiceLocator
 
 class HomeViewModel(
@@ -238,7 +240,167 @@ class HomeViewModel(
                 Log.d(TAG, "Skipping content refresh - too recent")
             }
         }
-    }    override fun onCleared() {
+    }    // Debug Methods for Image Loading Issues
+
+    /**
+     * Debug all image URLs for library cards and recently added items
+     */
+    fun debugAllImageUrls() {
+        viewModelScope.launch {
+            Log.d(TAG, "=== DEBUG: Starting comprehensive image URL analysis ===")
+            
+            // Debug media libraries
+            val libraries = mediaLibraries.value
+            if (libraries.isNotEmpty()) {
+                Log.d(TAG, "Debugging ${libraries.size} library images...")
+                libraries.forEachIndexed { index, library ->
+                    Log.d(TAG, "Library $index: ${library.name} (ID: ${library.id})")
+                    Log.d(TAG, "  Image URL: ${library.imageUrl}")
+                    Log.d(TAG, "  Backdrop URL: ${library.backdropUrl}")
+                    Log.d(TAG, "  Type: ${library.type}")
+                }
+            }
+            
+            // Debug recently added items
+            val recentlyAddedItems = recentlyAdded.value
+            recentlyAddedItems.forEach { (sectionName, items) ->
+                Log.d(TAG, "Debugging $sectionName with ${items.size} items...")
+                items.take(3).forEachIndexed { index, item -> // Only test first 3 items per section
+                    Log.d(TAG, "  Item $index: ${item.name} (ID: ${item.id})")
+                    Log.d(TAG, "    Image URL: ${item.imageUrl}")
+                    Log.d(TAG, "    Backdrop URL: ${item.backdropUrl}")
+                    Log.d(TAG, "    Type: ${item.type}")
+                    if (item.seriesName != null) {
+                        Log.d(TAG, "    Series: ${item.seriesName}")
+                        Log.d(TAG, "    Series Poster URL: ${item.seriesPosterUrl}")
+                    }
+                }
+            }
+            
+            Log.d(TAG, "=== DEBUG: Image analysis complete ===")
+        }
+    }
+
+    /**
+     * Debug images for a specific media item
+     */
+    fun debugSpecificItem(itemId: String, itemName: String = "Unknown") {
+        viewModelScope.launch {
+            Log.d(TAG, "=== DEBUG: Analyzing images for item '$itemName' (ID: $itemId) ===")
+            
+            // Find the item in our current data
+            val allItems = mutableListOf<MediaItem>().apply {
+                addAll(mediaLibraries.value)
+                addAll(featuredItems.value)
+                recentlyAdded.value.values.forEach { addAll(it) }
+            }
+            
+            val item = allItems.find { it.id == itemId }
+            if (item != null) {
+                Log.d(TAG, "Found item: ${item.name}")
+                Log.d(TAG, "  Image URL: ${item.imageUrl}")
+                Log.d(TAG, "  Backdrop URL: ${item.backdropUrl}")
+                Log.d(TAG, "  Type: ${item.type}")
+                if (item.seriesName != null) {
+                    Log.d(TAG, "  Series: ${item.seriesName}")
+                    Log.d(TAG, "  Series Poster URL: ${item.seriesPosterUrl}")
+                }
+            } else {
+                Log.w(TAG, "Item with ID $itemId not found in current data")
+            }
+        }
+    }
+
+    /**
+     * Test server connectivity and basic image accessibility
+     */
+    fun testServerConnectivity() {
+        viewModelScope.launch {
+            Log.d(TAG, "=== DEBUG: Testing server connectivity ===")
+            
+            val connectionState = repository.connectionState.value
+            Log.d(TAG, "Current connection state:")
+            Log.d(TAG, "  - Connected: ${connectionState.isConnected}")
+            Log.d(TAG, "  - Loading: ${connectionState.isLoading}")
+            Log.d(TAG, "  - Error: ${connectionState.error}")
+            
+            if (connectionState.isConnected) {
+                // Log sample URLs for manual testing
+                val sampleItems = mediaLibraries.value.take(2) + featuredItems.value.take(2)
+                if (sampleItems.isNotEmpty()) {
+                    Log.d(TAG, "Sample image URLs for manual testing:")
+                    sampleItems.forEach { item ->
+                        if (item.imageUrl != null) {
+                            Log.d(TAG, "  ${item.name}: ${item.imageUrl}")
+                        }
+                    }
+                } else {
+                    Log.d(TAG, "No sample items available for connectivity test")
+                }
+            } else {
+                Log.w(TAG, "Server not connected - cannot test image connectivity")
+            }
+        }
+    }
+
+    /**
+     * Debug recently added episodes specifically (common issue area)
+     */
+    fun debugRecentlyAddedEpisodes() {
+        viewModelScope.launch {
+            Log.d(TAG, "=== DEBUG: Analyzing recently added episodes ===")
+            
+            val recentlyAddedData = recentlyAdded.value
+            
+            // Find episode sections
+            val episodeSections = recentlyAddedData.filter { (sectionName, _) ->
+                sectionName.contains("Episodes", ignoreCase = true)
+            }
+            
+            if (episodeSections.isEmpty()) {
+                Log.d(TAG, "No episode sections found in recently added")
+                return@launch
+            }
+            
+            episodeSections.forEach { (sectionName, episodes) ->
+                Log.d(TAG, "Debugging section: $sectionName (${episodes.size} episodes)")
+                
+                episodes.take(5).forEachIndexed { index, episode -> // Test first 5 episodes
+                    Log.d(TAG, "  Episode $index: ${episode.name}")
+                    Log.d(TAG, "    Series: ${episode.seriesName}")
+                    Log.d(TAG, "    Image URL: ${episode.imageUrl}")
+                    Log.d(TAG, "    Backdrop URL: ${episode.backdropUrl}")
+                    Log.d(TAG, "    Series Poster URL: ${episode.seriesPosterUrl}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Get debug information for the UI to display
+     */
+    fun getDebugInfo(): String {
+        val connectionState = repository.connectionState.value
+        val libraries = mediaLibraries.value
+        val featured = featuredItems.value
+        val recentlyAddedData = recentlyAdded.value
+        
+        return buildString {
+            appendLine("=== Jellyfin Debug Info ===")
+            appendLine("Connection: ${if (connectionState.isConnected) "Connected" else "Disconnected"}")
+            if (connectionState.error != null) {
+                appendLine("Error: ${connectionState.error}")
+            }
+            appendLine("Libraries: ${libraries.size}")
+            appendLine("Featured Items: ${featured.size}")
+            appendLine("Recently Added Sections: ${recentlyAddedData.size}")
+            recentlyAddedData.forEach { (section, items) ->
+                appendLine("  - $section: ${items.size} items")
+            }
+            appendLine("Memory - Used: ${memoryInfo.value.usedMemoryMB}MB, Available: ${memoryInfo.value.availableMemoryMB}MB")
+            appendLine("Connection Health: ${connectionHealth.value}")
+        }
+    }override fun onCleared() {
         super.onCleared()
         Log.d(TAG, "HomeViewModel cleared")
         refreshJob?.cancel()

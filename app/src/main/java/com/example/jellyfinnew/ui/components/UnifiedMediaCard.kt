@@ -108,16 +108,27 @@ private fun OptimizedMediaImage(
     mediaItem: MediaItem,
     cardType: MediaCardType,
     modifier: Modifier = Modifier
-) {    val imageUrl = when (cardType) {
-        MediaCardType.BACKDROP, MediaCardType.EPISODE -> 
-            mediaItem.backdropUrl ?: mediaItem.imageUrl
-        MediaCardType.POSTER, MediaCardType.SQUARE -> 
-            mediaItem.imageUrl ?: mediaItem.backdropUrl
+) {
+    // Prepare a list of URLs to try, in order of preference
+    val urlsToTry = mutableListOf<String?>()
+    when (cardType) {
+        MediaCardType.BACKDROP, MediaCardType.EPISODE -> {
+            urlsToTry.add(mediaItem.backdropUrl)
+            urlsToTry.add(mediaItem.imageUrl) // Fallback to primary/poster
+            // Potentially add a third fallback if available, e.g., a generic series poster for episodes
+        }
+        MediaCardType.POSTER, MediaCardType.SQUARE -> {
+            urlsToTry.add(mediaItem.imageUrl)
+            urlsToTry.add(mediaItem.backdropUrl) // Fallback to backdrop
+        }
+        // Add other card types if necessary, or a default case
     }
-    
-    // Use RobustAsyncImage with enhanced error handling
+
+    // Filter out null or blank URLs before passing to RobustAsyncImage
+    val validUrls = urlsToTry.filter { !it.isNullOrBlank() }
+
     RobustAsyncImage(
-        imageUrl = imageUrl,
+        imageUrls = validUrls, // Pass the list of URLs
         contentDescription = mediaItem.name,
         modifier = modifier,
         contentScale = ContentScale.Crop,

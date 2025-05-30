@@ -155,7 +155,7 @@ class MediaRepository {
 
                 val recentlyAddedMap = mutableMapOf<String, List<MediaItem>>()
 
-                libraries?.items?.forEach { library: BaseItemDto ->
+                libraries.items.forEach { library: BaseItemDto ->
                     try {
                         Log.d(TAG, "Loading recently added for library: ${library.name}")
                         val libraryName = library.name ?: "Unknown"
@@ -218,15 +218,15 @@ class MediaRepository {
                 ItemFields.SERIES_PRIMARY_IMAGE,
                 ItemFields.SERIES_STUDIO,
                 ItemFields.DATE_CREATED
-            ),
-            limit = JellyfinConfig.UI.RECENTLY_ADDED_LIMIT,            recursive = true
+            ),            limit = JellyfinConfig.UI.RECENTLY_ADDED_LIMIT,
+            recursive = true
         )
 
-        Log.d(TAG, "Found ${response.content.items?.size ?: 0} episodes for $libraryName")
+        Log.d(TAG, "Found ${response.content.items.size} episodes for $libraryName")
         
-        val items = response.content.items?.mapNotNull { episode: BaseItemDto ->
+        val items = response.content.items.mapNotNull { episode: BaseItemDto ->
             createEpisodeMediaItem(episode, imageUrlHelper)
-        } ?: emptyList()
+        }
 
         Log.d(TAG, "Processed ${items.size} episode items for $libraryName")
 
@@ -246,53 +246,58 @@ class MediaRepository {
         val response = apiClient.itemsApi.getItems(
             parentId = library.id,
             sortBy = setOf(ItemSortBy.DATE_CREATED),
-            sortOrder = setOf(SortOrder.DESCENDING),
-            fields = setOf(ItemFields.PRIMARY_IMAGE_ASPECT_RATIO, ItemFields.OVERVIEW),            limit = JellyfinConfig.UI.RECENTLY_ADDED_LIMIT
+            sortOrder = setOf(SortOrder.DESCENDING),            fields = setOf(ItemFields.PRIMARY_IMAGE_ASPECT_RATIO, ItemFields.OVERVIEW),
+            limit = JellyfinConfig.UI.RECENTLY_ADDED_LIMIT
         )
 
-        val items = response.content.items?.mapNotNull { item: BaseItemDto ->
+        val items = response.content.items.mapNotNull { item: BaseItemDto ->
             createMediaItemFromDto(item, imageUrlHelper)
-        } ?: emptyList()
+        }
 
         if (items.isNotEmpty()) {
             recentlyAddedMap["Recently Added - $libraryName"] = items
         }
     }
-    
-    private fun createMediaItemFromDto(
+      private fun createMediaItemFromDto(
         dto: BaseItemDto,
         imageHelper: ImageUrlHelper
     ): MediaItem? {
         return try {
             val itemId = dto.id.toString()
+            val itemName = dto.name ?: "Unknown"
+            val itemType = dto.type
+            
+            Log.d(TAG, "Creating MediaItem - ID: $itemId, Name: $itemName, Type: $itemType")
             
             // Use proper image URLs based on item type
-            val (imageUrl, backdropUrl) = when (dto.type) {
+            val (imageUrl, backdropUrl) = when (itemType) {
                 BaseItemKind.COLLECTION_FOLDER, BaseItemKind.FOLDER -> {
-                    // Libraries should use backdrop images
+                    Log.d(TAG, "  Using library image type for item: $itemName")
                     imageHelper.getImageUrlsForCardType(itemId, "library")
                 }
                 BaseItemKind.EPISODE -> {
-                    // Episodes should use episode thumbs
+                    Log.d(TAG, "  Using episode image type for item: $itemName")
                     imageHelper.getImageUrlsForCardType(itemId, "episode")
                 }
                 BaseItemKind.MUSIC_ARTIST, BaseItemKind.MUSIC_ALBUM -> {
-                    // Music items should use square images
+                    Log.d(TAG, "  Using square image type for item: $itemName")
                     imageHelper.getImageUrlsForCardType(itemId, "square")
                 }
                 else -> {
-                    // Movies, TV shows use poster format
+                    Log.d(TAG, "  Using poster image type for item: $itemName")
                     imageHelper.getImageUrlsForCardType(itemId, "poster")
                 }
             }
 
+            Log.d(TAG, "  Generated URLs - Image: ${imageUrl?.take(100)}..., Backdrop: ${backdropUrl?.take(100)}...")
+
             MediaItem(
                 id = itemId,
-                name = dto.name ?: "Unknown",
+                name = itemName,
                 overview = dto.overview,
                 imageUrl = imageUrl,
                 backdropUrl = backdropUrl,
-                type = dto.type,
+                type = itemType,
                 runTimeTicks = dto.runTimeTicks,
                 userData = dto.userData?.let { userData ->
                     UserData(
@@ -304,9 +309,11 @@ class MediaRepository {
                 productionYear = dto.productionYear,
                 communityRating = dto.communityRating?.toDouble(),
                 collectionType = dto.collectionType?.toString()
-            )
+            ).also {
+                Log.d(TAG, "Successfully created MediaItem for: $itemName")
+            }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to create MediaItem from DTO: ${dto.name}", e)
+            Log.e(TAG, "Failed to create MediaItem from DTO: ${dto.name} (ID: ${dto.id})", e)
             null
         }
     }

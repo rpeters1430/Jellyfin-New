@@ -20,6 +20,7 @@ object JellyfinConfig {
         const val THUMB_HEIGHT = 450
         const val LIBRARY_BACKDROP_WIDTH = 1280
         const val LIBRARY_BACKDROP_HEIGHT = 720
+        const val IMAGE_CROSSFADE_ENABLED = true // Added missing constant
     }
     
     // API Configuration

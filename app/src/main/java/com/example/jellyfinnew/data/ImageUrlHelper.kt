@@ -4,31 +4,18 @@ import android.util.Log
 import org.jellyfin.sdk.api.client.ApiClient
 
 /**
- * Enhanced helper class for building Jellyfin image URLs with proper aspect ratios
+ * Enhanced helper class for building Jellyfin image URLs with proper aspect ratios and fallbacks
  */
 class ImageUrlHelper(private val apiClient: ApiClient?) {
     
     companion object {
-        private const val DEFAULT_QUALITY = 90
         private const val TAG = "ImageUrlHelper"
-        
-        // TV-optimized sizes for different card types
-        private const val POSTER_WIDTH = 400 // Reduced for TV performance
-        private const val POSTER_HEIGHT = 600
-        private const val BACKDROP_WIDTH = 1280 // Reduced from 1920 for TV
-        private const val BACKDROP_HEIGHT = 720
-        private const val EPISODE_WIDTH = 800 // Horizontal episode cards
-        private const val EPISODE_HEIGHT = 450
-        private const val LIBRARY_WIDTH = 1200 // Library backdrop cards
-        private const val LIBRARY_HEIGHT = 675
-    }
-
-    private fun buildImageUrl(
+    }    private fun buildImageUrl(
         itemId: String,
         imageType: String,
         maxWidth: Int? = null,
         maxHeight: Int? = null,
-        quality: Int = DEFAULT_QUALITY
+        quality: Int = JellyfinConfig.Images.DEFAULT_QUALITY
     ): String? {
         return apiClient?.let { client ->
             val url = buildString {
@@ -54,37 +41,37 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {
 
     // Vertical poster images (2:3 aspect ratio)
     fun buildPosterUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Primary", POSTER_WIDTH, POSTER_HEIGHT)    // Horizontal backdrop images (16:9 aspect ratio)
+        buildImageUrl(itemId, "Primary", JellyfinConfig.Images.POSTER_WIDTH, JellyfinConfig.Images.POSTER_HEIGHT)
+
+    // Horizontal backdrop images (16:9 aspect ratio)
     fun buildBackdropUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Backdrop", BACKDROP_WIDTH, BACKDROP_HEIGHT)
+        buildImageUrl(itemId, "Backdrop", JellyfinConfig.Images.BACKDROP_WIDTH, JellyfinConfig.Images.BACKDROP_HEIGHT)
 
     // Episode thumb images (16:9 aspect ratio, smaller)
     fun buildEpisodeThumbUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Thumb", EPISODE_WIDTH, EPISODE_HEIGHT)
+        buildImageUrl(itemId, "Thumb", JellyfinConfig.Images.THUMB_WIDTH, JellyfinConfig.Images.THUMB_HEIGHT)
 
     // Library backdrop images (16:9 aspect ratio, medium size)
     fun buildLibraryBackdropUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Primary", LIBRARY_WIDTH, LIBRARY_HEIGHT)
+        buildImageUrl(itemId, "Primary", JellyfinConfig.Images.LIBRARY_BACKDROP_WIDTH, JellyfinConfig.Images.LIBRARY_BACKDROP_HEIGHT)
 
     // Episode thumb images (horizontal, legacy method name for compatibility)
     fun buildThumbUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Thumb", EPISODE_WIDTH, EPISODE_HEIGHT)
+        buildImageUrl(itemId, "Thumb", JellyfinConfig.Images.THUMB_WIDTH, JellyfinConfig.Images.THUMB_HEIGHT)
 
     // Square images (1:1 aspect ratio)
     fun buildSquareUrl(itemId: String): String? =
-        buildImageUrl(itemId, "Primary", 500, 500)
-
-    /**
+        buildImageUrl(itemId, "Primary", 500, 500)    /**
      * Smart image URL selection based on card type and available images
      */
     fun getOptimalImageUrl(itemId: String, cardType: String): String? {
         return when (cardType) {
-            "poster" -> buildPosterUrl(itemId)
-            "backdrop" -> buildBackdropUrl(itemId)
-            "episode" -> buildThumbUrl(itemId) ?: buildBackdropUrl(itemId)
-            "library" -> buildLibraryBackdropUrl(itemId) ?: buildBackdropUrl(itemId)
-            "square" -> buildSquareUrl(itemId)
-            else -> buildPosterUrl(itemId)
+            "poster" -> buildPosterUrl(itemId) ?: buildBackdropUrl(itemId)
+            "backdrop" -> buildBackdropUrl(itemId) ?: buildPosterUrl(itemId)
+            "episode" -> buildThumbUrl(itemId) ?: buildBackdropUrl(itemId) ?: buildPosterUrl(itemId)
+            "library" -> buildLibraryBackdropUrl(itemId) ?: buildBackdropUrl(itemId) ?: buildPosterUrl(itemId)
+            "square" -> buildSquareUrl(itemId) ?: buildPosterUrl(itemId)
+            else -> buildPosterUrl(itemId) ?: buildBackdropUrl(itemId)
         }
     }
 
@@ -92,32 +79,50 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {
      * Get appropriate image URLs with fallbacks for media cards
      */
     fun getImageUrlsForCardType(itemId: String, cardType: String): Pair<String?, String?> {
+        Log.d(TAG, "Getting image URLs for $itemId, cardType: $cardType")
+        
         return when (cardType) {
             "poster" -> {
                 val poster = buildPosterUrl(itemId)
                 val backdrop = buildBackdropUrl(itemId)
+                Log.d(TAG, "Poster URLs - primary: $poster, fallback: $backdrop")
                 poster to backdrop
             }            "library" -> {
-                val primary = buildImageUrl(itemId, "Primary", JellyfinConfig.Images.POSTER_WIDTH, JellyfinConfig.Images.POSTER_HEIGHT)
-                val backdrop = buildImageUrl(itemId, "Backdrop", LIBRARY_WIDTH, LIBRARY_HEIGHT)
-                primary to backdrop
+                // Try Primary first, then Backdrop as fallback for libraries
+                val primary = buildLibraryBackdropUrl(itemId)
+                val backdrop = buildBackdropUrl(itemId)
+                val posterFallback = buildPosterUrl(itemId)
+                val finalPrimary = primary ?: backdrop ?: posterFallback
+                val finalFallback = backdrop ?: posterFallback
+                Log.d(TAG, "Library URLs - primary: $primary, fallback: $backdrop, poster: $posterFallback, final: $finalPrimary")
+                finalPrimary to finalFallback
             }
-            "backdrop" -> { // Assuming this case remains unchanged for now
-                val backdrop = buildLibraryBackdropUrl(itemId) ?: buildBackdropUrl(itemId)
+            "backdrop" -> {
+                val backdrop = buildBackdropUrl(itemId)
                 val poster = buildPosterUrl(itemId)
+                Log.d(TAG, "Backdrop URLs - primary: $backdrop, fallback: $poster")
                 backdrop to poster
             }
             "episode" -> {
-                val episodeThumb = buildThumbUrl(itemId) // Use Thumb image type for episodes
-                val backdrop = buildBackdropUrl(itemId)
-                episodeThumb to backdrop
+                // Try Thumb first, then Backdrop, then Primary as fallbacks
+                val episodeThumb = buildThumbUrl(itemId)
+                val backdrop = buildBackdropUrl(itemId) 
+                val poster = buildPosterUrl(itemId)
+                val finalPrimary = episodeThumb ?: backdrop ?: poster
+                val finalFallback = backdrop ?: poster
+                Log.d(TAG, "Episode URLs - primary: $finalPrimary, fallback: $finalFallback")
+                finalPrimary to finalFallback
             }
             "square" -> {
                 val square = buildSquareUrl(itemId)
                 val poster = buildPosterUrl(itemId)
+                Log.d(TAG, "Square URLs - primary: $square, fallback: $poster")
                 square to poster
             }
-            else -> buildMediaImageUrls(itemId)
+            else -> {
+                Log.d(TAG, "Using default media image URLs for $cardType")
+                buildMediaImageUrls(itemId)
+            }
         }
     }
 

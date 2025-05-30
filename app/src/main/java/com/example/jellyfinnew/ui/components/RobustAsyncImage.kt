@@ -20,6 +20,7 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
+import coil.request.ImageRequest
 import com.example.jellyfinnew.data.JellyfinConfig
 import com.example.jellyfinnew.ui.utils.ImageCacheManager
 import kotlinx.coroutines.delay
@@ -32,104 +33,111 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun RobustAsyncImage(
-    imageUrl: String?,
+    imageUrls: List<String?>, // Changed from imageUrl: String?
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
     enableRetry: Boolean = true,
     maxRetries: Int = JellyfinConfig.Performance.MAX_RETRIES,
     showPlaceholder: Boolean = true,
-    placeholderColor: Color = MaterialTheme.colorScheme.surfaceVariant
+    placeholderColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    onStateChange: ((AsyncImagePainter.State) -> Unit)? = null
 ) {
-    var retryCount by remember { mutableIntStateOf(0) }
-    var isLoading by remember { mutableStateOf(true) }
-    var hasError by remember { mutableStateOf(false) }
-    var imageState by remember { mutableStateOf<AsyncImagePainter.State?>(null) }
+    var currentUrlIndex by remember(imageUrls) { mutableIntStateOf(0) }
+    var retryCountForCurrentUrl by remember(imageUrls, currentUrlIndex) { mutableIntStateOf(0) }
+    var isLoading by remember(imageUrls, currentUrlIndex) { mutableStateOf(true) }
+    var hasErrorForCurrentUrl by remember(imageUrls, currentUrlIndex) { mutableStateOf(false) }
+    var currentImageState by remember(imageUrls, currentUrlIndex) { mutableStateOf<AsyncImagePainter.State?>(null) }
 
-    // Reset state when URL changes
-    LaunchedEffect(imageUrl) {
-        retryCount = 0
+    val currentImageUrl = imageUrls.getOrNull(currentUrlIndex)?.takeIf { it.isNotBlank() }
+
+    // Reset state when imageUrls list or currentUrlIndex changes (e.g. trying next URL)
+    LaunchedEffect(imageUrls, currentUrlIndex) {
+        retryCountForCurrentUrl = 0
         isLoading = true
-        hasError = false
-        imageState = null
+        hasErrorForCurrentUrl = false
+        currentImageState = null
     }
 
     Box(modifier = modifier) {
-        when {
-            imageUrl.isNullOrEmpty() -> {
-                // No image URL - show placeholder
-                if (showPlaceholder) {
-                    SkeletonPlaceholder(
-                        modifier = Modifier.fillMaxSize(),
-                        color = placeholderColor
-                    )
-                }
-            }
-            
-            else -> {
-                val imageRequest = ImageCacheManager.createOptimizedImageRequest(
-                    url = imageUrl,
-                    contentDescription = contentDescription,
-                    enableCrossfade = false
-                )
+        if (currentImageUrl != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(currentImageUrl)
+                    .crossfade(JellyfinConfig.Performance.IMAGE_CROSSFADE_ENABLED) // Assuming this constant exists
+                    .placeholder(if (showPlaceholder) com.example.jellyfinnew.R.drawable.ic_placeholder_image else null) // Use null for no placeholder
+                    .error(com.example.jellyfinnew.R.drawable.ic_error_image) // Generic error for Coil
+                    .build(),
+                contentDescription = contentDescription,
+                contentScale = contentScale,
+                modifier = Modifier.fillMaxSize(),
+                onState = { state ->
+                    currentImageState = state
+                    isLoading = state is AsyncImagePainter.State.Loading
+                    hasErrorForCurrentUrl = state is AsyncImagePainter.State.Error
+                    onStateChange?.invoke(state)
 
-                if (imageRequest != null) {
-                    AsyncImage(
-                        model = imageRequest,
-                        contentDescription = contentDescription,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = contentScale,
-                        onState = { state ->
-                            imageState = state
-                            when (state) {
-                                is AsyncImagePainter.State.Loading -> {
-                                    isLoading = true
-                                    hasError = false
-                                }
-                                is AsyncImagePainter.State.Success -> {
-                                    isLoading = false
-                                    hasError = false
-                                    retryCount = 0
-                                }
-                                is AsyncImagePainter.State.Error -> {
-                                    isLoading = false
-                                    hasError = true
-                                }
-                                else -> {
-                                    isLoading = false
-                                }
+                    if (state is AsyncImagePainter.State.Error) {
+                        if (retryCountForCurrentUrl >= maxRetries) { // Retries for this URL exhausted
+                            if (currentUrlIndex < imageUrls.size - 1) { // More URLs to try
+                                currentUrlIndex++ // Move to next URL
                             }
+                            // If no more URLs, final error state will be shown below
                         }
-                    )
+                    }
                 }
+            )
+        } else { // currentImageUrl is null or blank, or we've run out of URLs
+            LaunchedEffect(Unit) { // Ensure isLoading is false and hasError is true for placeholder
+                isLoading = false
+                hasErrorForCurrentUrl = true // Treat as error to show final placeholder
             }
         }
 
-        // Loading skeleton overlay
-        if (isLoading && showPlaceholder) {
+        if (isLoading && showPlaceholder && currentImageUrl != null) {
             SkeletonPlaceholder(
                 modifier = Modifier.fillMaxSize(),
                 isAnimated = true
             )
         }
 
-        // Error state with retry option
-        if (hasError && enableRetry && retryCount < maxRetries) {
-            ErrorStateWithRetry(
+        val canRetryCurrentUrl = enableRetry && retryCountForCurrentUrl < maxRetries
+        val isLastUrl = currentUrlIndex >= imageUrls.size - 1 || imageUrls.drop(currentUrlIndex + 1).all { it.isNullOrBlank() }
+
+        if (hasErrorForCurrentUrl && currentImageUrl != null) {
+            if (canRetryCurrentUrl) {
+                ErrorStateWithRetry(
+                    modifier = Modifier.fillMaxSize(),
+                    onRetry = {
+                        retryCountForCurrentUrl++
+                        // isLoading = true; hasErrorForCurrentUrl = false; // Will be handled by AsyncImage state change
+                    },
+                    retryCount = retryCountForCurrentUrl,
+                    maxRetries = maxRetries,
+                    imageState = currentImageState,
+                    imageUrl = currentImageUrl // Pass currentImageUrl for context
+                )
+            } else if (!isLastUrl && currentUrlIndex < imageUrls.size -1) {
+                // Current URL failed terminally, and we are about to try the next one.
+                // Show loading for a brief moment or rely on LaunchedEffect for next URL.
+                // This state is transient as currentUrlIndex will increment.
+                // To avoid flicker, we can show a generic placeholder or rely on the next URL's loading state.
+                 if (showPlaceholder) {
+                    SkeletonPlaceholder(modifier = Modifier.fillMaxSize(), isAnimated = false) // Static placeholder
+                 }
+            } else { // All retries for current URL exhausted, and no more URLs or next URL is null/blank
+                ErrorPlaceholder(
+                    modifier = Modifier.fillMaxSize(),
+                    color = placeholderColor,
+                    imageState = currentImageState
+                )
+            }
+        } else if (hasErrorForCurrentUrl && currentImageUrl == null && showPlaceholder) {
+            // This case handles when all URLs are null or exhausted from the start
+             ErrorPlaceholder(
                 modifier = Modifier.fillMaxSize(),
-                onRetry = {
-                    retryCount++
-                    isLoading = true
-                    hasError = false
-                },
-                retryCount = retryCount,
-                maxRetries = maxRetries
-            )
-        } else if (hasError && showPlaceholder) {
-            // Final error state - no more retries
-            ErrorPlaceholder(
-                modifier = Modifier.fillMaxSize(),
-                color = placeholderColor
+                color = placeholderColor,
+                imageState = null // No specific image state if URL was null
             )
         }
     }
@@ -167,9 +175,25 @@ private fun ErrorStateWithRetry(
     modifier: Modifier = Modifier,
     onRetry: () -> Unit,
     retryCount: Int,
-    maxRetries: Int
+    maxRetries: Int,
+    imageState: AsyncImagePainter.State?,
+    imageUrl: String? // Added imageUrl for context
 ) {
     val coroutineScope = rememberCoroutineScope()
+    
+    // Determine error message based on the error
+    val errorMessage = when {
+        imageState is AsyncImagePainter.State.Error -> {
+            val throwable = imageState.result.throwable
+            when {
+                throwable.message?.contains("401") == true -> "Auth Error"
+                throwable.message?.contains("404") == true -> "Not Found"
+                throwable.message?.contains("403") == true -> "Access Denied"
+                else -> "Failed to load"
+            }
+        }
+        else -> "Failed to load"
+    }
     
     Box(
         modifier = modifier
@@ -182,7 +206,7 @@ private fun ErrorStateWithRetry(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Failed to load",
+                text = errorMessage,
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center
@@ -212,8 +236,23 @@ private fun ErrorStateWithRetry(
 @Composable
 private fun ErrorPlaceholder(
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.errorContainer
+    color: Color = MaterialTheme.colorScheme.errorContainer,
+    imageState: AsyncImagePainter.State?
 ) {
+    // Determine error message based on the error
+    val errorMessage = when {
+        imageState is AsyncImagePainter.State.Error -> {
+            val throwable = imageState.result.throwable
+            when {
+                throwable.message?.contains("401") == true -> "Auth Error"
+                throwable.message?.contains("404") == true -> "Not Found"
+                throwable.message?.contains("403") == true -> "No Access"
+                else -> "Load Failed"
+            }
+        }
+        else -> "No Image"
+    }
+    
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
@@ -221,7 +260,7 @@ private fun ErrorPlaceholder(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "No Image",
+            text = errorMessage,
             color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
             fontSize = 10.sp,
             textAlign = TextAlign.Center
