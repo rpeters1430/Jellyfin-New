@@ -2,6 +2,8 @@ package com.example.jellyfinnew.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -39,10 +41,15 @@ fun JellyfinNavigation(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val repository = remember { ServiceLocator.provideRepository(context) }
+    
+    // Check connection state to determine start destination
+    val connectionState by repository.connectionState.collectAsState()
+    val startDestination = if (connectionState.isConnected) Screen.Home.route else Screen.Login.route
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Login.route,
+        startDestination = startDestination,
         modifier = modifier
     ) {
         composable(Screen.Login.route) {
@@ -53,10 +60,9 @@ fun JellyfinNavigation(
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
-                }
-            )
+                }            )
         }
-        
+
         composable(Screen.Home.route) {
             val viewModel: HomeViewModel = viewModel()
             val loginViewModel: LoginViewModel = viewModel()

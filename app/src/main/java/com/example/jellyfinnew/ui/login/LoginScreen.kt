@@ -129,24 +129,8 @@ fun LoginScreen(
                             focusManager.clearFocus()
                             viewModel.login()
                         }
-                    ),
-                    singleLine = true                )
-                
-                // Remember Login Checkbox
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = uiState.rememberLogin,
-                        onCheckedChange = viewModel::updateRememberLogin
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Remember login",
-                        fontSize = 16.sp
-                    )
-                }
+                    ),                    singleLine = true
+                )
                 
                 if (uiState.connectionState.error != null) {
                     TvText(

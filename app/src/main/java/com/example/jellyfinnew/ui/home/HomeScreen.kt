@@ -3,9 +3,10 @@ package com.example.jellyfinnew.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -136,25 +137,30 @@ private fun MainHomeContent(
     viewModel: HomeViewModel,
     modifier: Modifier = Modifier
 ) {
+    // Filter out empty recently added sections before LazyColumn
+    val filteredRecentlyAdded = remember(recentlyAdded) {
+        recentlyAdded.filter { it.value.isNotEmpty() }.toList()
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(TvListDefaults.contentPadding),
         verticalArrangement = Arrangement.spacedBy(TvListDefaults.sectionSpacing)
     ) {
-        // Header
-        item {
+        // Header - always present
+        item(key = "header") {
             HomeHeader(onDisconnect = onDisconnect)
         }
 
-        // Featured Carousel - closer to header
-        if (featuredItems.isNotEmpty()) {
-            item {
+        // Featured Carousel - only add if has content
+        featuredItems.takeIf { it.isNotEmpty() }?.let {
+            item(key = "featured") {
                 Column(
                     modifier = Modifier.padding(top = TvSpacing.small),
                     verticalArrangement = Arrangement.spacedBy(TvSpacing.medium)
                 ) {
                     EnhancedFeaturedCarousel(
-                        featuredItems = featuredItems,
+                        featuredItems = it,
                         onPlayClick = onPlayMedia,
                         onFocus = onFocusChange
                     )
@@ -162,11 +168,11 @@ private fun MainHomeContent(
             }
         }
 
-        // Media Libraries Section
-        if (mediaLibraries.isNotEmpty()) {
-            item {
+        // Media Libraries Section - only add if has content
+        mediaLibraries.takeIf { it.isNotEmpty() }?.let {
+            item(key = "libraries") {
                 MediaLibrarySection(
-                    libraries = mediaLibraries,
+                    libraries = it,
                     onLibraryClick = onLibraryClick,
                     onLibraryFocus = onFocusChange,
                     onLibraryIndexFocused = { index, items ->
@@ -176,21 +182,20 @@ private fun MainHomeContent(
             }
         }
 
-        // Recently Added Sections
-        recentlyAdded.forEach { (libraryName, items) ->
-            if (items.isNotEmpty()) {
-                item {
-                    RecentlyAddedSection(
-                        title = libraryName,
-                        items = items,
-                        onItemClick = onPlayMedia,
-                        onItemFocus = onFocusChange,
-                        onItemIndexFocused = { index, listItems ->
-                            viewModel.onItemFocused(index, listItems)
-                        }
-                    )
+        // Recently Added Sections - use filtered list and provide unique keys
+        items(
+            items = filteredRecentlyAdded,
+            key = { (libraryName, _) -> "recently_added_$libraryName" }
+        ) { (libraryName, items) ->
+            RecentlyAddedSection(
+                title = libraryName,
+                items = items,
+                onItemClick = onPlayMedia,
+                onItemFocus = onFocusChange,
+                onItemIndexFocused = { index, listItems ->
+                    viewModel.onItemFocused(index, listItems)
                 }
-            }
+            )
         }
     }
 }
@@ -232,14 +237,13 @@ private fun LibraryContentView(
         // Content
         if (currentLibraryItems.isEmpty()) {
             LoadingState(message = "Loading library items...")
-        } else {
-            LazyVerticalGrid(
+        } else {            LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 180.dp),
                 contentPadding = PaddingValues(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(currentLibraryItems) { item ->
+                gridItems(currentLibraryItems) { item ->
                     LibraryItemCard(
                         mediaItem = item,
                         onClick = { onItemClick(item) },

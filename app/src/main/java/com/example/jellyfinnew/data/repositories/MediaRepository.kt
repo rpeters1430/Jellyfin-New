@@ -105,7 +105,7 @@ class MediaRepository {
                 val libraries = userViewsApi.getUserViews().content
 
                 val allFeaturedItems = mutableListOf<MediaItem>()
-
+                
                 libraries.items.forEach { library ->
                     try {
                         Log.d(TAG, "Loading featured items for library: ${library.name}")
@@ -125,6 +125,10 @@ class MediaRepository {
 
                         allFeaturedItems.addAll(items)
                         Log.d(TAG, "Added ${items.size} featured items from library: ${library.name}")
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        // Re-throw cancellation to stop the entire operation
+                        Log.d(TAG, "Featured content loading cancelled for library: ${library.name}")
+                        throw e
                     } catch (e: Exception) {
                         Log.w(TAG, "Error loading featured items for library ${library.name}", e)
                     }
@@ -168,10 +172,13 @@ class MediaRepository {
                         Log.d(TAG, "Library: $libraryName, Type: ${library.collectionType}, isTvLibrary: $isTvLibrary")
                         
                         if (isTvLibrary) {
-                            loadRecentlyAddedEpisodes(library, libraryName, apiClient, imageUrlHelper, recentlyAddedMap)
-                        } else {
+                            loadRecentlyAddedEpisodes(library, libraryName, apiClient, imageUrlHelper, recentlyAddedMap)                        } else {
                             loadRecentlyAddedGeneral(library, libraryName, apiClient, imageUrlHelper, recentlyAddedMap)
                         }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        // Re-throw cancellation to stop the entire operation
+                        Log.d(TAG, "Recently added loading cancelled for library: ${library.name}")
+                        throw e
                     } catch (e: Exception) {
                         Log.w(TAG, "Error loading recently added for library ${library.name}", e)
                     }
@@ -371,8 +378,7 @@ class MediaRepository {
             Log.w(TAG, "Failed to create episode MediaItem: ${episode.name}", e)
             null
         }
-    }
-    private suspend fun <T> safeApiCall(
+    }    private suspend fun <T> safeApiCall(
         operation: suspend () -> T,
         onSuccess: suspend (T) -> Unit = {},
         errorMessage: String = "API call failed"
@@ -383,6 +389,7 @@ class MediaRepository {
         } catch (e: kotlinx.coroutines.CancellationException) {
             // Expected when navigation cancels operations - don't log as error
             Log.d(TAG, "$errorMessage: Operation cancelled (navigation)")
+            throw e // Re-throw to maintain proper coroutine cancellation behavior
         } catch (e: Exception) {
             val error = ErrorHandler.handleException(e, errorMessage)
             Log.e(TAG, "$errorMessage: ${error.getUserFriendlyMessage()}", e)

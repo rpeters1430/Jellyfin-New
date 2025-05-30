@@ -68,6 +68,7 @@ class GeneralMediaViewModel(application: Application) : AndroidViewModel(applica
                     _items.value = libraryItems
                     
                     Log.d(TAG, "Loaded ${libraryItems.size} items for library: ${library.name}")
+                    
                     _uiState.value = _uiState.value.copy(isLoading = false)
                 } else {
                     Log.w(TAG, "Library not found: $libraryId")
@@ -77,6 +78,10 @@ class GeneralMediaViewModel(application: Application) : AndroidViewModel(applica
                     )
                 }
                 
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Expected during navigation transitions - don't log as error
+                Log.d(TAG, "Library loading cancelled for $libraryId")
+                throw e // Re-throw to maintain proper cancellation semantics
             } catch (e: Exception) {
                 val error = ErrorHandler.handleException(e, "Failed to load library content")
                 Log.e(TAG, error.getUserFriendlyMessage(), e)

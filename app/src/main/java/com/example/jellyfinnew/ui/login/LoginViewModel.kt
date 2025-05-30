@@ -16,9 +16,9 @@ data class LoginUiState(
     val serverUrl: String = "",
     val username: String = "",
     val password: String = "",
-    val rememberLogin: Boolean = true,
     val connectionState: ConnectionState = ConnectionState(),
-    val isLoadingCredentials: Boolean = true
+    val isLoadingCredentials: Boolean = true,
+    val hasAttemptedAutoLogin: Boolean = false
 )
 
 class LoginViewModel(
@@ -46,22 +46,23 @@ class LoginViewModel(
         
         // Load saved credentials
         loadSavedCredentials()
-    }
-      private fun loadSavedCredentials() {
+    }    private fun loadSavedCredentials() {
         viewModelScope.launch {
             userPreferencesManager.loginCredentials.collect { credentials ->
+                val hasCredentials = credentials.serverUrl.isNotEmpty() && 
+                                   credentials.username.isNotEmpty() && 
+                                   credentials.password.isNotEmpty()
+                
                 _uiState.value = _uiState.value.copy(
                     serverUrl = credentials.serverUrl,
                     username = credentials.username,
                     password = credentials.password,
-                    rememberLogin = credentials.serverUrl.isNotEmpty() || credentials.username.isNotEmpty(),
                     isLoadingCredentials = false
                 )
                 
-                // Auto-login if credentials are available and remember login is enabled
-                if (credentials.serverUrl.isNotEmpty() && 
-                    credentials.username.isNotEmpty() && 
-                    credentials.password.isNotEmpty()) {
+                // Auto-login if credentials are available and we haven't attempted auto-login yet
+                if (hasCredentials && !_uiState.value.hasAttemptedAutoLogin) {
+                    _uiState.value = _uiState.value.copy(hasAttemptedAutoLogin = true)
                     login()
                 }
             }
@@ -81,11 +82,10 @@ class LoginViewModel(
         _uiState.value = _uiState.value.copy(password = password)
         clearError() // Clear any previous errors when user starts typing
     }
-    
-    fun updateRememberLogin(remember: Boolean) {
-        _uiState.value = _uiState.value.copy(rememberLogin = remember)
-    }
-      fun login() {
+      fun updateRememberLogin(remember: Boolean) {
+        // This function is kept for compatibility but does nothing
+        // since we always save credentials on successful login
+    }    fun login() {
         viewModelScope.launch {
             val state = _uiState.value
             val normalizedUrl = state.serverUrl.let { if (it.startsWith("http")) it else "http://$it" }
@@ -96,16 +96,13 @@ class LoginViewModel(
                 password = state.password
             )
             
-            // Save credentials on successful login only if remember login is checked
-            if (result && state.rememberLogin) {
+            // Always save credentials on successful login for auto-login
+            if (result) {
                 userPreferencesManager.saveLoginCredentials(
                     serverUrl = normalizedUrl,
                     username = state.username,
                     password = state.password
                 )
-            } else if (result && !state.rememberLogin) {
-                // Clear any existing saved credentials if user unchecked remember login
-                userPreferencesManager.clearLoginCredentials()
             }
         }
     }

@@ -307,14 +307,18 @@ class TvShowsRepository {
             null
         }
     }
-    
-    private suspend fun <T> safeApiCall(
+      private suspend fun <T> safeApiCall(
         operation: suspend () -> T,
         onSuccess: suspend (T) -> Unit = {},
         errorMessage: String = "API call failed"
-    ) {        try {
+    ) {
+        try {
             val result = operation()
             onSuccess(result)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Expected when navigation cancels operations - don't log as error
+            Log.d(TAG, "$errorMessage: Operation cancelled (navigation)")
+            throw e // Re-throw to maintain proper coroutine cancellation behavior
         } catch (e: Exception) {
             val error = ErrorHandler.handleException(e, errorMessage)
             Log.e(TAG, error.getUserFriendlyMessage(), e)

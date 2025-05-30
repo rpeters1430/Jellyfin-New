@@ -270,8 +270,7 @@ fun MediaLibrarySection(
                     .fillMaxWidth()
                     .height(200.dp),
                 contentAlignment = Alignment.Center
-            ) {
-                Text(
+            ) {                Text(
                     text = "No libraries found",
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -333,40 +332,37 @@ fun RecentlyAddedSection(
     modifier: Modifier = Modifier,
     onItemIndexFocused: ((Int, List<MediaItem>) -> Unit)? = null
 ) {
-    if (items.isNotEmpty()) {
-        Column(
-            modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = title,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 4.dp)
-            )
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {        Text(
+            text = title,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
 
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp) // Recently added cards spacing
-            ) {
-                itemsIndexed(items) { index, item ->
-                    MediaCard(
-                        mediaItem = item,
-                        onClick = { onItemClick(item.id) },
-                        onFocus = {
-                            // For episodes, prefer backdrop/series poster, otherwise use item images
-                            val focusImageUrl = when (item.type) {
-                                BaseItemKind.EPISODE -> {
-                                    item.backdropUrl ?: item.seriesPosterUrl ?: item.imageUrl
-                                }
-                                else -> item.backdropUrl ?: item.imageUrl
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp) // Recently added cards spacing
+        ) {
+            itemsIndexed(items) { index, item ->
+                MediaCard(
+                    mediaItem = item,
+                    onClick = { onItemClick(item.id) },
+                    onFocus = {
+                        // For episodes, prefer backdrop/series poster, otherwise use item images
+                        val focusImageUrl = when (item.type) {
+                            BaseItemKind.EPISODE -> {
+                                item.backdropUrl ?: item.seriesPosterUrl ?: item.imageUrl
                             }
-                            onItemFocus(focusImageUrl)
-                            // Trigger preloading for adjacent items
-                            onItemIndexFocused?.invoke(index, items)
+                            else -> item.backdropUrl ?: item.imageUrl
                         }
-                    )
-                }
+                        onItemFocus(focusImageUrl)
+                        // Trigger preloading for adjacent items
+                        onItemIndexFocused?.invoke(index, items)
+                    }
+                )
             }
         }
     }

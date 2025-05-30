@@ -82,9 +82,7 @@ class JellyfinRepository(
     val songs: StateFlow<List<MediaItem>> = musicRepository.songs
     val musicGenres: StateFlow<List<String>> = musicRepository.musicGenres
     val currentArtist: StateFlow<MediaItem?> = musicRepository.currentArtist
-    val currentAlbum: StateFlow<MediaItem?> = musicRepository.currentAlbum
-
-    /**
+    val currentAlbum: StateFlow<MediaItem?> = musicRepository.currentAlbum    /**
      * Connect to Jellyfin server with authentication
      */
     suspend fun connect(serverUrl: String, username: String, password: String): Boolean {
@@ -97,7 +95,10 @@ class JellyfinRepository(
                 loadInitialData()
             }
             
-            connected        } catch (e: Exception) {
+            connected        } catch (e: kotlinx.coroutines.CancellationException) {
+            Log.d(TAG, "Connection cancelled (navigation)")
+            throw e // Re-throw to maintain proper coroutine cancellation semantics
+        } catch (e: Exception) {
             val error = ErrorHandler.handleException(e, "Failed to connect to server")
             Log.e(TAG, error.getUserFriendlyMessage(), e)
             false
@@ -283,9 +284,7 @@ class JellyfinRepository(
         audioCodec: String?
     ): Boolean {
         return streamingRepository.supportsDirectPlay(container, videoCodec, audioCodec)
-    }
-
-    /**
+    }    /**
      * Load initial data after successful connection
      */
     private suspend fun loadInitialData() {
@@ -297,11 +296,14 @@ class JellyfinRepository(
             loadFeaturedContent()
             loadRecentlyAdded()
               Log.d(TAG, "Initial data loading completed")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            Log.d(TAG, "Initial data loading cancelled (navigation)")
+            throw e // Re-throw to maintain proper coroutine cancellation semantics
         } catch (e: Exception) {
             val error = ErrorHandler.handleException(e, "Failed to load initial data")
             Log.e(TAG, error.getUserFriendlyMessage(), e)
         }
-    }    /**
+    }/**
      * Clear all data from repositories
      */
     private fun clearAllData() {

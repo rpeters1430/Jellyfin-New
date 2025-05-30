@@ -35,28 +35,43 @@ sealed class JellyfinError {
  */
 object ErrorHandler {
     private const val TAG = "ErrorHandler"
-    
-    /**
+      /**
      * Process and categorize exceptions into user-friendly errors
      */
     fun handleException(
         exception: Throwable,
         context: String = "Unknown operation"
     ): JellyfinError {
-        Log.e(TAG, "Handling exception in $context", exception)
-        
         return when (exception) {
-            is ApiClientException -> handleApiClientException(exception)
-            is SSLException -> handleSSLException(exception)
-            is CertificateException -> handleCertificateException(exception)
-            is ConnectException -> handleConnectionException(exception)
-            is UnknownHostException -> handleUnknownHostException(exception)
             is kotlinx.coroutines.CancellationException -> {
-                // Don't log cancellations as errors
+                // Don't log cancellations as errors - these are expected during navigation
                 Log.d(TAG, "Operation cancelled: $context")
                 JellyfinError.DataError("Operation cancelled", exception)
             }
-            else -> handleGenericException(exception, context)
+            is ApiClientException -> {
+                Log.e(TAG, "Handling API exception in $context", exception)
+                handleApiClientException(exception)
+            }
+            is SSLException -> {
+                Log.e(TAG, "Handling SSL exception in $context", exception)
+                handleSSLException(exception)
+            }
+            is CertificateException -> {
+                Log.e(TAG, "Handling certificate exception in $context", exception)
+                handleCertificateException(exception)
+            }
+            is ConnectException -> {
+                Log.e(TAG, "Handling connection exception in $context", exception)
+                handleConnectionException(exception)
+            }
+            is UnknownHostException -> {
+                Log.e(TAG, "Handling unknown host exception in $context", exception)
+                handleUnknownHostException(exception)
+            }
+            else -> {
+                Log.e(TAG, "Handling generic exception in $context", exception)
+                handleGenericException(exception, context)
+            }
         }
     }
     

@@ -93,7 +93,7 @@ class HomeViewModel(
             Log.d(TAG, "Refresh already in progress, skipping")
             return
         }
-
+        
         refreshJob = viewModelScope.launch {
             try {
                 _isRefreshing.value = true
@@ -105,15 +105,17 @@ class HomeViewModel(
                 repository.loadRecentlyAdded()
 
                 Log.d(TAG, "Home content refresh completed successfully")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Expected during navigation transitions - don't log as error
+                Log.d(TAG, "Home content refresh cancelled")
+                throw e // Re-throw to maintain proper cancellation semantics
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing home content", e)
             } finally {
                 _isRefreshing.value = false
             }
         }
-    }
-
-    /**
+    }    /**
      * Load items for a specific library
      */
     fun loadLibraryItems(libraryId: String) {
@@ -128,6 +130,10 @@ class HomeViewModel(
                     Log.d(TAG, "Large library detected (${items.size} items), enabling pagination")
                     paginationManager.initializePagination(items)
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Expected during navigation transitions - don't log as error
+                Log.d(TAG, "Library items loading cancelled for $libraryId")
+                throw e // Re-throw to maintain proper cancellation semantics
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading library items for $libraryId", e)
             }
