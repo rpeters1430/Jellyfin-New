@@ -41,10 +41,8 @@ import org.jellyfin.sdk.model.api.BaseItemKind
 fun HomeScreen(
     viewModel: HomeViewModel,
     onPlayMedia: (String) -> Unit,
-    onNavigateToTvShows: (String) -> Unit,
-    onNavigateToMovies: (String) -> Unit,
-    onNavigateToMusic: (String) -> Unit,
     onDisconnect: () -> Unit,
+    onFocusChange: (String?) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val mediaLibraries by viewModel.mediaLibraries.collectAsStateWithLifecycle()
@@ -66,47 +64,28 @@ fun HomeScreen(
         when {
             connectionState.isLoading -> {
                 LoadingState(message = "Connecting to Jellyfin...")
-            }
-
-            connectionState.error != null -> {
+            }            connectionState.error != null -> {
                 ErrorState(
                     error = connectionState.error!!,
                     onRetry = {
                         viewModel.refreshHomeContent()
                     }
                 )
-            }
-
-            selectedLibraryId == null -> {
+            }            selectedLibraryId == null -> {
                 // Main home view with featured content and library rows
                 MainHomeContent(
                     mediaLibraries = mediaLibraries,
                     featuredItems = featuredItems,
                     recentlyAdded = recentlyAdded,
-                    onPlayMedia = { itemId ->
-                        val streamingUrl = viewModel.getStreamingUrl(itemId)
-                        streamingUrl?.let {
-                            navController.navigate("player/$it")
-                        }
-                    },
-                    onNavigateToTvShows = onNavigateToTvShows,
-                    onNavigateToMovies = onNavigateToMovies,
-                    onNavigateToMusic = onNavigateToMusic,
+                    onPlayMedia = onPlayMedia,
                     onLibraryClick = { library ->
                         // Enhanced library navigation logic based on collection type
-                        when (library.collectionType) {
-                            "tvshows" -> onNavigateToTvShows(library.id)
-                            "movies" -> onNavigateToMovies(library.id)
-                            "music" -> onNavigateToMusic(library.id)
-                            // For other library types (books, photos, etc.), show local browser
-                            else -> {
-                                selectedLibraryId = library.id
-                                viewModel.loadLibraryItems(library.id)
-                            }
-                        }
+                        selectedLibraryId = library.id
+                        viewModel.loadLibraryItems(library.id)
                     },
                     onFocusChange = { imageUrl ->
                         focusedItemImageUrl = imageUrl
+                        onFocusChange(imageUrl)
                     },
                     onDisconnect = {
                         viewModel.disconnect()
@@ -151,9 +130,6 @@ private fun MainHomeContent(
     featuredItems: List<MediaItem>,
     recentlyAdded: Map<String, List<MediaItem>>,
     onPlayMedia: (String) -> Unit,
-    onNavigateToTvShows: (String) -> Unit,
-    onNavigateToMovies: (String) -> Unit,
-    onNavigateToMusic: (String) -> Unit,
     onLibraryClick: (MediaItem) -> Unit,
     onFocusChange: (String?) -> Unit,
     onDisconnect: () -> Unit,

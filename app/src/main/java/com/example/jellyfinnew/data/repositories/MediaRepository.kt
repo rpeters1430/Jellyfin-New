@@ -50,15 +50,14 @@ class MediaRepository {
      * Load media libraries from the server
      */
     suspend fun loadMediaLibraries(apiClient: ApiClient, imageUrlHelper: ImageUrlHelper) {
-        safeApiCall(
-            operation = {
+        safeApiCall(            operation = {
                 Log.d(TAG, "Loading media libraries...")
                 val result = apiClient.userViewsApi.getUserViews()
-                Log.d(TAG, "Got ${result.content.items?.size ?: 0} libraries")
+                Log.d(TAG, "Got ${result.content.items.size} libraries")
 
-                val libraries = result.content.items?.mapNotNull { item ->
+                val libraries = result.content.items.mapNotNull { item ->
                     createMediaItemFromDto(item, imageUrlHelper)
-                } ?: emptyList()
+                }
 
                 _mediaLibraries.value = libraries
                 Log.d(TAG, "Loaded ${libraries.size} libraries")
@@ -82,12 +81,10 @@ class MediaRepository {
                     ),
                     sortBy = setOf(ItemSortBy.SORT_NAME),
                     sortOrder = setOf(SortOrder.ASCENDING),
-                    limit = JellyfinConfig.UI.LIST_SIZE_LIMIT
-                )
-
-                val items = result.content.items?.mapNotNull { item ->
+                    limit = JellyfinConfig.UI.LIST_SIZE_LIMIT                )
+                val items = result.content.items.mapNotNull { item ->
                     createMediaItemFromDto(item, imageUrlHelper)
-                } ?: emptyList()
+                }
 
                 _currentLibraryItems.value = items
                 Log.d(TAG, "Loaded ${items.size} library items")
@@ -109,7 +106,7 @@ class MediaRepository {
 
                 val allFeaturedItems = mutableListOf<MediaItem>()
 
-                libraries?.items?.forEach { library ->
+                libraries.items.forEach { library ->
                     try {
                         Log.d(TAG, "Loading featured items for library: ${library.name}")
                         val itemsApi = apiClient.itemsApi
@@ -119,14 +116,12 @@ class MediaRepository {
                             sortBy = setOf(ItemSortBy.DATE_CREATED),
                             sortOrder = setOf(SortOrder.DESCENDING),
                             fields = setOf(ItemFields.PRIMARY_IMAGE_ASPECT_RATIO, ItemFields.OVERVIEW),
-                            limit = 5
-                        )
-
-                        val items = response.content.items?.mapNotNull { movie ->
+                            limit = 5                        )
+                        val items = response.content.items.mapNotNull { movie ->
                             if (movie.overview?.isNotEmpty() == true) {
                                 createMediaItemFromDto(movie, imageUrlHelper)
                             } else null
-                        } ?: listOf()
+                        }
 
                         allFeaturedItems.addAll(items)
                         Log.d(TAG, "Added ${items.size} featured items from library: ${library.name}")

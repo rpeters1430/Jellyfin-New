@@ -172,15 +172,20 @@ class HomeViewModel(
     fun refreshHomeContent() {
         Log.d(TAG, "Manual home content refresh requested")
         loadHomeContent()
-    }
-
-    /**
+    }    /**
      * Get stream URL for media playback
      */
     fun getStreamUrl(itemId: String): String? {
         val streamUrl = repository.getStreamUrl(itemId)
         Log.d(TAG, "Stream URL for $itemId: $streamUrl")
         return streamUrl
+    }
+
+    /**
+     * Get streaming URL for media playback (alias for getStreamUrl)
+     */
+    fun getStreamingUrl(itemId: String): String? {
+        return getStreamUrl(itemId)
     }
 
     /**

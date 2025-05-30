@@ -30,7 +30,9 @@ import com.example.jellyfinnew.ui.music.MusicViewModel
 import com.example.jellyfinnew.ui.general.GeneralMediaScreen
 import com.example.jellyfinnew.ui.general.GeneralMediaViewModel
 import com.example.jellyfinnew.di.ServiceLocator
+import androidx.tv.material3.ExperimentalTvMaterial3Api
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun JellyfinNavigation(
     navController: NavHostController,
@@ -54,7 +56,7 @@ fun JellyfinNavigation(
                 }
             )
         }
-
+        
         composable(Screen.Home.route) {
             val viewModel: HomeViewModel = viewModel()
             val loginViewModel: LoginViewModel = viewModel()
@@ -62,15 +64,6 @@ fun JellyfinNavigation(
                 viewModel = viewModel,
                 onPlayMedia = { itemId: String ->
                     navController.navigate(Screen.Player.createRoute(itemId))
-                },
-                onNavigateToTvShows = { libraryId: String ->
-                    navController.navigate(Screen.TvShows.createRoute(libraryId))
-                },
-                onNavigateToMovies = { libraryId: String ->
-                    navController.navigate(Screen.Movies.createRoute(libraryId))
-                },
-                onNavigateToMusic = { libraryId: String ->
-                    navController.navigate(Screen.Music.createRoute(libraryId))
                 },
                 onDisconnect = {
                     loginViewModel.logout()

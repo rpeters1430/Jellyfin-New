@@ -97,10 +97,10 @@ class ImageUrlHelper(private val apiClient: ApiClient?) {
                 val poster = buildPosterUrl(itemId)
                 val backdrop = buildBackdropUrl(itemId)
                 poster to backdrop
-            }
-            "library" -> {
+            }            "library" -> {
                 val primary = buildImageUrl(itemId, "Primary", JellyfinConfig.Images.POSTER_WIDTH, JellyfinConfig.Images.POSTER_HEIGHT)
                 val backdrop = buildImageUrl(itemId, "Backdrop", LIBRARY_WIDTH, LIBRARY_HEIGHT)
+                primary to backdrop
             }
             "backdrop" -> { // Assuming this case remains unchanged for now
                 val backdrop = buildLibraryBackdropUrl(itemId) ?: buildBackdropUrl(itemId)
