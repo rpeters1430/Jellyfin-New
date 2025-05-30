@@ -89,6 +89,9 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.session)
+    implementation("com.google.android.exoplayer:exoplayer:2.19.0")
+    implementation("com.google.android.exoplayer:exoplayer-ui:2.19.0")
+    implementation("com.google.android.exoplayer:extension-mediasession:2.19.0")
     
     // Networking
     implementation(libs.retrofit)

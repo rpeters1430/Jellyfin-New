@@ -83,7 +83,12 @@ fun HomeScreen(
                     mediaLibraries = mediaLibraries,
                     featuredItems = featuredItems,
                     recentlyAdded = recentlyAdded,
-                    onPlayMedia = onPlayMedia,
+                    onPlayMedia = { itemId ->
+                        val streamingUrl = viewModel.getStreamingUrl(itemId)
+                        streamingUrl?.let {
+                            navController.navigate("player/$it")
+                        }
+                    },
                     onNavigateToTvShows = onNavigateToTvShows,
                     onNavigateToMovies = onNavigateToMovies,
                     onNavigateToMusic = onNavigateToMusic,

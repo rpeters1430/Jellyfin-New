@@ -19,12 +19,14 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 
-@OptIn(ExperimentalTvMaterial3Api::class, UnstableApi::class)
+@ExperimentalTvMaterial3Api
+@OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(
     streamUrl: String,
@@ -35,13 +37,23 @@ fun PlayerScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     
     var showControls by remember { mutableStateOf(true) }
-    
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(streamUrl))
-            prepare()
-            playWhenReady = true
+      val exoPlayer = remember {
+        val trackSelector = DefaultTrackSelector(context).apply {
+            setParameters(
+                buildUponParameters()
+                    .setPreferredAudioLanguage("en")
+                    .setPreferredVideoMimeType("video/avc")
+            )
         }
+        
+        ExoPlayer.Builder(context)
+            .setTrackSelector(trackSelector)
+            .build()
+            .apply {
+                setMediaItem(MediaItem.fromUri(streamUrl))
+                prepare()
+                playWhenReady = true
+            }
     }
     
     DisposableEffect(lifecycleOwner) {
