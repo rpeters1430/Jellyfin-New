@@ -1,33 +1,22 @@
 package com.example.jellyfinnew.ui.home
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Button
-import androidx.tv.material3.Card
-import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
 import com.example.jellyfinnew.ui.home.components.*
 import com.example.jellyfinnew.ui.utils.TvOptimizations
@@ -51,6 +40,7 @@ fun HomeScreen(
     val featuredItems by viewModel.featuredItems.collectAsStateWithLifecycle()
     val recentlyAdded by viewModel.recentlyAdded.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
+
     var selectedLibraryId by remember { mutableStateOf<String?>(null) }
     var focusedItemImageUrl by remember { mutableStateOf<String?>(null) }
 
@@ -58,21 +48,21 @@ fun HomeScreen(
         // Optimized background image with debounced updates
         TvOptimizations.DebouncedBackgroundImage(
             imageUrl = focusedItemImageUrl,
-            debounceMs = 300L // Faster response for TV
+            debounceMs = 300L
         )
 
-        // Handle connection state
+        // Handle connection state with proper composition stability
         when {
             connectionState.isLoading -> {
                 LoadingState(message = "Connecting to Jellyfin...")
-            }            connectionState.error != null -> {
+            }
+            connectionState.error != null -> {
                 ErrorState(
                     error = connectionState.error!!,
-                    onRetry = {
-                        viewModel.refreshHomeContent()
-                    }
+                    onRetry = { viewModel.refreshHomeContent() }
                 )
-            }            selectedLibraryId == null -> {
+            }
+            selectedLibraryId == null -> {
                 // Main home view with featured content and library rows
                 MainHomeContent(
                     mediaLibraries = mediaLibraries,
@@ -80,7 +70,6 @@ fun HomeScreen(
                     recentlyAdded = recentlyAdded,
                     onPlayMedia = onPlayMedia,
                     onLibraryClick = { library ->
-                        // Enhanced library navigation logic based on collection type
                         selectedLibraryId = library.id
                         viewModel.loadLibraryItems(library.id)
                     },
@@ -95,7 +84,6 @@ fun HomeScreen(
                     viewModel = viewModel
                 )
             }
-
             else -> {
                 // Library content view
                 LibraryContentView(
@@ -111,7 +99,6 @@ fun HomeScreen(
                                 viewModel.loadLibraryItems(item.id)
                             }
                             else -> {
-                                // Try to play unknown types, might be playable
                                 onPlayMedia(item.id)
                             }
                         }
@@ -137,8 +124,8 @@ private fun MainHomeContent(
     viewModel: HomeViewModel,
     modifier: Modifier = Modifier
 ) {
-    // Filter out empty recently added sections before LazyColumn
-    val filteredRecentlyAdded = remember(recentlyAdded) {
+    // Filter empty sections and create stable list for LazyColumn
+    val recentlyAddedSections = remember(recentlyAdded) {
         recentlyAdded.filter { it.value.isNotEmpty() }.toList()
     }
 
@@ -147,20 +134,20 @@ private fun MainHomeContent(
         contentPadding = PaddingValues(TvListDefaults.contentPadding),
         verticalArrangement = Arrangement.spacedBy(TvListDefaults.sectionSpacing)
     ) {
-        // Header - always present
+        // Header - always present with stable key
         item(key = "header") {
             HomeHeader(onDisconnect = onDisconnect)
         }
 
-        // Featured Carousel - only add if has content
-        featuredItems.takeIf { it.isNotEmpty() }?.let {
+        // Featured Carousel - only if has content
+        if (featuredItems.isNotEmpty()) {
             item(key = "featured") {
                 Column(
                     modifier = Modifier.padding(top = TvSpacing.small),
                     verticalArrangement = Arrangement.spacedBy(TvSpacing.medium)
                 ) {
                     EnhancedFeaturedCarousel(
-                        featuredItems = it,
+                        featuredItems = featuredItems,
                         onPlayClick = onPlayMedia,
                         onFocus = onFocusChange
                     )
@@ -168,11 +155,11 @@ private fun MainHomeContent(
             }
         }
 
-        // Media Libraries Section - only add if has content
-        mediaLibraries.takeIf { it.isNotEmpty() }?.let {
+        // Media Libraries Section - only if has content
+        if (mediaLibraries.isNotEmpty()) {
             item(key = "libraries") {
                 MediaLibrarySection(
-                    libraries = it,
+                    libraries = mediaLibraries,
                     onLibraryClick = onLibraryClick,
                     onLibraryFocus = onFocusChange,
                     onLibraryIndexFocused = { index, items ->
@@ -182,10 +169,10 @@ private fun MainHomeContent(
             }
         }
 
-        // Recently Added Sections - use filtered list and provide unique keys
+        // Recently Added Sections with stable keys
         items(
-            items = filteredRecentlyAdded,
-            key = { (libraryName, _) -> "recently_added_$libraryName" }
+            items = recentlyAddedSections,
+            key = { (libraryName, _) -> "recently_added_${libraryName.hashCode()}" }
         ) { (libraryName, items) ->
             RecentlyAddedSection(
                 title = libraryName,
@@ -235,29 +222,35 @@ private fun LibraryContentView(
         }
 
         // Content
-        if (currentLibraryItems.isEmpty()) {
-            LoadingState(message = "Loading library items...")
-        } else {            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 180.dp),
-                contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                gridItems(currentLibraryItems) { item ->
-                    LibraryItemCard(
-                        mediaItem = item,
-                        onClick = { onItemClick(item) },
-                        onFocus = {
-                            onFocusChange(item.backdropUrl ?: item.imageUrl)
-                        }
-                    )
+        when {
+            currentLibraryItems.isEmpty() -> {
+                LoadingState(message = "Loading library items...")
+            }
+            else -> {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 180.dp),
+                    contentPadding = PaddingValues(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    gridItems(
+                        items = currentLibraryItems,
+                        key = { item -> "library_item_${item.id}" }
+                    ) { item ->
+                        LibraryItemCard(
+                            mediaItem = item,
+                            onClick = { onItemClick(item) },
+                            onFocus = {
+                                onFocusChange(item.backdropUrl ?: item.imageUrl)
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun LibraryItemCard(
     mediaItem: MediaItem,
@@ -265,17 +258,18 @@ private fun LibraryItemCard(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Use the new UnifiedMediaCard with optimized caching
+    val cardType = when (mediaItem.type) {
+        BaseItemKind.EPISODE -> MediaCardType.EPISODE
+        BaseItemKind.FOLDER, BaseItemKind.COLLECTION_FOLDER -> MediaCardType.BACKDROP
+        else -> MediaCardType.POSTER
+    }
+
     UnifiedMediaCard(
         mediaItem = mediaItem,
         onClick = onClick,
         modifier = modifier,
         onFocus = onFocus,
-        cardType = when (mediaItem.type) {
-            BaseItemKind.EPISODE -> MediaCardType.EPISODE
-            BaseItemKind.FOLDER, BaseItemKind.COLLECTION_FOLDER -> MediaCardType.BACKDROP
-            else -> MediaCardType.POSTER
-        },
+        cardType = cardType,
         showProgress = true,
         showOverlay = true
     )

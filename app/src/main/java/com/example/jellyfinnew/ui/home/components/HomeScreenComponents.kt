@@ -35,7 +35,7 @@ import java.util.Locale
 import org.jellyfin.sdk.model.api.BaseItemKind
 
 /**
- * Enhanced Featured Carousel with better TV optimization
+ * Fixed Enhanced Featured Carousel with stable composition
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -45,61 +45,64 @@ fun EnhancedFeaturedCarousel(
     onFocus: (String?) -> Unit,
     modifier: Modifier = Modifier,
     autoRotateEnabled: Boolean = true,
-    autoRotateInterval: Long = 20_000L // 20 seconds
+    autoRotateInterval: Long = 20_000L
 ) {
     if (featuredItems.isEmpty()) return
 
     var currentIndex by remember { mutableIntStateOf(0) }
     var isPaused by remember { mutableStateOf(false) }
 
+    // Ensure currentIndex is valid
+    val safeCurrentIndex = currentIndex.coerceIn(0, featuredItems.size - 1)
+    val currentItem = featuredItems.getOrNull(safeCurrentIndex)
+
     // Auto-rotation with pause on focus
-    LaunchedEffect(currentIndex, isPaused, autoRotateEnabled, featuredItems.size) {
+    LaunchedEffect(safeCurrentIndex, isPaused, autoRotateEnabled, featuredItems.size) {
         if (autoRotateEnabled && !isPaused && featuredItems.isNotEmpty()) {
             delay(autoRotateInterval)
-            currentIndex = (currentIndex + 1) % featuredItems.size
+            currentIndex = (safeCurrentIndex + 1) % featuredItems.size
         }
     }
 
     // Update background when item changes
-    LaunchedEffect(currentIndex, featuredItems) {
-        if (currentIndex < featuredItems.size) {
-            val currentItem = featuredItems[currentIndex]
-            onFocus(currentItem.backdropUrl ?: currentItem.imageUrl)
+    LaunchedEffect(currentItem) {
+        currentItem?.let { item ->
+            onFocus(item.backdropUrl ?: item.imageUrl)
         }
     }
 
-    val currentItem = featuredItems[currentIndex]
-
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = "Featured",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 4.dp)
-        )
-
-        TvFocusableCard(
-            onClick = { onPlayClick(currentItem.id) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(420.dp), // Increased from 320dp to 420dp
-            onFocus = { isPaused = true },
-            onUnfocus = { isPaused = false },
-            shape = CardDefaults.shape(RoundedCornerShape(16.dp)),
-            scale = CardDefaults.scale(
-                scale = 1.0f,
-                focusedScale = 1.02f
+    if (currentItem != null) {
+        Column(
+            modifier = modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Featured",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
-        ) { isFocused ->
-            FeaturedItemContent(
-                item = currentItem,
-                isFocused = isFocused,
-                currentIndex = currentIndex,
-                totalItems = featuredItems.size
-            )
+
+            TvFocusableCard(
+                onClick = { onPlayClick(currentItem.id) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(420.dp),
+                onFocus = { isPaused = true },
+                onUnfocus = { isPaused = false },
+                shape = CardDefaults.shape(RoundedCornerShape(16.dp)),
+                scale = CardDefaults.scale(
+                    scale = 1.0f,
+                    focusedScale = 1.02f
+                )
+            ) { isFocused ->
+                FeaturedItemContent(
+                    item = currentItem,
+                    isFocused = isFocused,
+                    currentIndex = safeCurrentIndex,
+                    totalItems = featuredItems.size
+                )
+            }
         }
     }
 }
@@ -112,13 +115,19 @@ private fun FeaturedItemContent(
     totalItems: Int
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        // Optimized background image
-        TvOptimizations.OptimizedAsyncImage(
-            imageUrl = item.backdropUrl ?: item.imageUrl,
-            contentDescription = item.name,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        // Background image
+        val imageUrl = item.backdropUrl ?: item.imageUrl
+        if (imageUrl != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = item.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
 
         // Gradient overlay
         Box(
@@ -197,22 +206,24 @@ private fun FeaturedItemContent(
             }
 
             // Progress indicators
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                repeat(totalItems) { index ->
-                    Box(
-                        modifier = Modifier
-                            .size(if (index == currentIndex) 12.dp else 8.dp)
-                            .background(
-                                color = if (index == currentIndex)
-                                    Color.White
-                                else
-                                    Color.White.copy(alpha = 0.4f),
-                                shape = androidx.compose.foundation.shape.CircleShape
-                            )
-                    )
+            if (totalItems > 1) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(totalItems) { index ->
+                        Box(
+                            modifier = Modifier
+                                .size(if (index == currentIndex) 12.dp else 8.dp)
+                                .background(
+                                    color = if (index == currentIndex)
+                                        Color.White
+                                    else
+                                        Color.White.copy(alpha = 0.4f),
+                                    shape = androidx.compose.foundation.shape.CircleShape
+                                )
+                        )
+                    }
                 }
             }
         }
@@ -232,7 +243,7 @@ private fun FeaturedItemContent(
 }
 
 /**
- * TV-optimized media library section with preloading
+ * Fixed Media Library Section with stable composition
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -255,44 +266,50 @@ fun MediaLibrarySection(
             modifier = Modifier.padding(horizontal = 4.dp)
         )
 
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             }
-        } else if (libraries.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                contentAlignment = Alignment.Center
-            ) {                Text(
-                    text = "No libraries found",
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-            }
-        } else {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(TvListDefaults.itemSpacing)
-            ) {
-                itemsIndexed(libraries) { index, library ->
-                    LibraryCard(
-                        library = library,
-                        onClick = { onLibraryClick(library) },
-                        onFocus = {
-                            // Try backdrop first, fallback to image, then use backdrop again
-                            val focusImageUrl = library.backdropUrl ?: library.imageUrl ?: library.backdropUrl
-                            onLibraryFocus(focusImageUrl)
-                            // Trigger preloading for adjacent libraries
-                            onLibraryIndexFocused?.invoke(index, libraries)
-                        }
+            libraries.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No libraries found",
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
+                }
+            }
+            else -> {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(TvListDefaults.itemSpacing)
+                ) {
+                    itemsIndexed(
+                        items = libraries,
+                        key = { index, library -> "library-${library.id}-$index" }
+                    ) { index, library ->
+                        LibraryCard(
+                            library = library,
+                            onClick = { onLibraryClick(library) },
+                            onFocus = {
+                                val focusImageUrl = library.backdropUrl ?: library.imageUrl
+                                onLibraryFocus(focusImageUrl)
+                                onLibraryIndexFocused?.invoke(index, libraries)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -307,21 +324,19 @@ private fun LibraryCard(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Use the new UnifiedMediaCard with optimized caching for library cards
     UnifiedMediaCard(
         mediaItem = library,
         onClick = onClick,
         modifier = modifier.width(320.dp),
         onFocus = onFocus,
-        cardType = MediaCardType.BACKDROP, // Libraries use backdrop layout
-        showProgress = false, // Libraries don't have progress
+        cardType = MediaCardType.BACKDROP,
+        showProgress = false,
         showOverlay = true
     )
 }
 
 /**
- * Recently added content section with improved layout and preloading
- * Fixed to use proper card types for episodes (banner cards)
+ * Fixed Recently Added Section with stable keys
  */
 @Composable
 fun RecentlyAddedSection(
@@ -332,10 +347,14 @@ fun RecentlyAddedSection(
     modifier: Modifier = Modifier,
     onItemIndexFocused: ((Int, List<MediaItem>) -> Unit)? = null
 ) {
+    // Safety check for empty items
+    if (items.isEmpty()) return
+
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {        Text(
+    ) {
+        Text(
             text = title,
             fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold,
@@ -344,14 +363,16 @@ fun RecentlyAddedSection(
 
         LazyRow(
             contentPadding = PaddingValues(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp) // Recently added cards spacing
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            itemsIndexed(items) { index, item ->
+            itemsIndexed(
+                items = items,
+                key = { index, item -> "recent-${item.id}-$index" }
+            ) { index, item ->
                 MediaCard(
                     mediaItem = item,
                     onClick = { onItemClick(item.id) },
                     onFocus = {
-                        // For episodes, prefer backdrop/series poster, otherwise use item images
                         val focusImageUrl = when (item.type) {
                             BaseItemKind.EPISODE -> {
                                 item.backdropUrl ?: item.seriesPosterUrl ?: item.imageUrl
@@ -359,7 +380,6 @@ fun RecentlyAddedSection(
                             else -> item.backdropUrl ?: item.imageUrl
                         }
                         onItemFocus(focusImageUrl)
-                        // Trigger preloading for adjacent items
                         onItemIndexFocused?.invoke(index, items)
                     }
                 )
@@ -368,7 +388,6 @@ fun RecentlyAddedSection(
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun MediaCard(
     mediaItem: MediaItem,
@@ -376,19 +395,15 @@ private fun MediaCard(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Determine the appropriate card type and size based on media type
     val (cardType, cardModifier) = when (mediaItem.type) {
         BaseItemKind.EPISODE -> {
-            // Episodes should now use vertical poster cards
-            MediaCardType.POSTER to modifier.width(180.dp).height(270.dp) // Maintain 2:3 aspect ratio for vertical poster cards
+            MediaCardType.POSTER to modifier.width(180.dp).height(270.dp)
         }
         else -> {
-            // Other media uses poster cards
             MediaCardType.POSTER to modifier.width(180.dp)
         }
     }
 
-    // Use the new UnifiedMediaCard with optimized caching
     UnifiedMediaCard(
         mediaItem = mediaItem,
         onClick = onClick,

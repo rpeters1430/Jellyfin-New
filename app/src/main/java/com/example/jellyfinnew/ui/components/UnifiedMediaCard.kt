@@ -19,14 +19,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.jellyfinnew.data.MediaItem
-import com.example.jellyfinnew.ui.utils.ImageCacheManager
-import com.example.jellyfinnew.ui.utils.TvFocusableCard
 import org.jellyfin.sdk.model.api.BaseItemKind
 
 /**
- * Unified media card component with optimized image loading and caching
- * Replaces all the repetitive card components across the app
+ * Fixed unified media card component with proper Compose structure
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -40,7 +38,10 @@ fun UnifiedMediaCard(
     showProgress: Boolean = true,
     showOverlay: Boolean = true
 ) {
-    TvFocusableCard(
+    // Stable keys for Compose
+    val cardKey = remember(mediaItem.id, cardType) { "${mediaItem.id}-${cardType.name}" }
+
+    Card(
         onClick = onClick,
         modifier = modifier.then(
             when (cardType) {
@@ -50,8 +51,6 @@ fun UnifiedMediaCard(
                 MediaCardType.EPISODE -> Modifier.aspectRatio(16f / 9f)
             }
         ),
-        onFocus = onFocus,
-        onUnfocus = onUnfocus,
         shape = CardDefaults.shape(RoundedCornerShape(8.dp)),
         scale = CardDefaults.scale(
             scale = 1.0f,
@@ -59,97 +58,112 @@ fun UnifiedMediaCard(
         ),
         colors = CardDefaults.colors(
             containerColor = Color.Transparent
-        )
-    ) { isFocused ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Optimized image with enhanced caching
-            OptimizedMediaImage(
-                mediaItem = mediaItem,
-                cardType = cardType,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(8.dp))
-            )
-            
-            // Overlay with text information
-            if (showOverlay) {
-                MediaOverlay(
+        ),
+        border = CardDefaults.border()
+    ) {
+        // Use key to ensure stable composition
+        key(cardKey) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Image with proper error handling
+                MediaImageContent(
                     mediaItem = mediaItem,
                     cardType = cardType,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            
-            // Progress indicator for partially watched content
-            if (showProgress) {
-                WatchProgressIndicator(
-                    mediaItem = mediaItem,
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
-            }
-            
-            // Focus indicator
-            if (isFocused) {
-                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            Color.White.copy(alpha = 0.1f),
-                            RoundedCornerShape(8.dp)
-                        )
+                        .clip(RoundedCornerShape(8.dp))
                 )
+
+                // Overlay content
+                if (showOverlay) {
+                    MediaOverlayContent(
+                        mediaItem = mediaItem,
+                        cardType = cardType,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                // Progress indicator
+                if (showProgress) {
+                    WatchProgressContent(
+                        mediaItem = mediaItem,
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
             }
+        }
+    }
+
+    // Handle focus events outside the Card composition
+    LaunchedEffect(Unit) {
+        onFocus()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            onUnfocus()
         }
     }
 }
 
 @Composable
-private fun OptimizedMediaImage(
+private fun MediaImageContent(
     mediaItem: MediaItem,
     cardType: MediaCardType,
     modifier: Modifier = Modifier
 ) {
-    // Prepare a list of URLs to try, in order of preference
-    val urlsToTry = mutableListOf<String?>()
-    when (cardType) {
+    // Determine image URL based on card type
+    val imageUrl = when (cardType) {
         MediaCardType.BACKDROP, MediaCardType.EPISODE -> {
-            urlsToTry.add(mediaItem.backdropUrl)
-            urlsToTry.add(mediaItem.imageUrl) // Fallback to primary/poster
+            mediaItem.backdropUrl ?: mediaItem.imageUrl
         }
         MediaCardType.POSTER, MediaCardType.SQUARE -> {
-            urlsToTry.add(mediaItem.imageUrl)
-            urlsToTry.add(mediaItem.backdropUrl) // Fallback to backdrop
+            mediaItem.imageUrl ?: mediaItem.backdropUrl
         }
     }
 
-    // Filter out null or blank URLs before passing to RobustAsyncImage
-    val validUrls = urlsToTry.filterNotNull().filter { it.isNotBlank() } as List<String>
-
-    RobustAsyncImage(
-        imageUrls = validUrls,
-        contentDescription = mediaItem.name,
-        modifier = modifier
-    )
+    if (imageUrl != null) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(imageUrl)
+                .crossfade(true)
+                .build(),
+            contentDescription = mediaItem.name,
+            modifier = modifier,
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        // Fallback placeholder
+        Box(
+            modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "No Image",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp
+            )
+        }
+    }
 }
 
 @Composable
-private fun MediaOverlay(
+private fun MediaOverlayContent(
     mediaItem: MediaItem,
     cardType: MediaCardType,
     modifier: Modifier = Modifier
 ) {
     when (cardType) {
         MediaCardType.EPISODE -> {
-            EpisodeOverlay(mediaItem, modifier)
+            EpisodeOverlayContent(mediaItem, modifier)
         }
         else -> {
-            StandardOverlay(mediaItem, modifier)
+            StandardOverlayContent(mediaItem, modifier)
         }
     }
 }
 
 @Composable
-private fun StandardOverlay(
+private fun StandardOverlayContent(
     mediaItem: MediaItem,
     modifier: Modifier = Modifier
 ) {
@@ -175,7 +189,7 @@ private fun StandardOverlay(
 }
 
 @Composable
-private fun EpisodeOverlay(
+private fun EpisodeOverlayContent(
     mediaItem: MediaItem,
     modifier: Modifier = Modifier
 ) {
@@ -199,10 +213,10 @@ private fun EpisodeOverlay(
                     )
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             )
-            
+
             Spacer(modifier = Modifier.height(4.dp))
         }
-        
+
         // Episode name
         Text(
             text = mediaItem.episodeName ?: mediaItem.name,
@@ -222,7 +236,7 @@ private fun EpisodeOverlay(
 }
 
 @Composable
-private fun WatchProgressIndicator(
+private fun WatchProgressContent(
     mediaItem: MediaItem,
     modifier: Modifier = Modifier
 ) {
@@ -231,7 +245,7 @@ private fun WatchProgressIndicator(
         val progress = if (mediaItem.runTimeTicks != null && mediaItem.runTimeTicks > 0) {
             (userData.playbackPositionTicks.toFloat() / mediaItem.runTimeTicks.toFloat()).coerceIn(0f, 1f)
         } else 0f
-        
+
         if (progress > 0f) {
             Box(
                 modifier = modifier
